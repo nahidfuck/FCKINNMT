@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>НМТ Симулятор</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Geologica:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ЕКРАН ЗАВАНТАЖЕННЯ (показується поки тест вантажиться з API) -->
+  <div id="loading-screen" style="
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--color-bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1rem;
+  ">
+    <div style="
+      width: 40px; height: 40px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    "></div>
+    <p style="color: var(--color-text-muted); font-size: 0.9rem;">Завантаження тесту...</p>
+  </div>
+
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+
+  <!-- ШАПКА -->
+  <header class="app-header">
+    <div class="header-left">
+      <span class="header-subject-badge" id="subject-badge">...</span>
+      <span class="header-title" id="test-title">Завантаження...</span>
+    </div>
+    <div class="header-right">
+      <button class="btn-reference" id="btn-reference">📐 <span>Довідник</span></button>
+      <div class="timer" id="timer">
+        <span class="timer-icon">⏱</span>
+        <span id="timer-value">--:--</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ГОЛОВНИЙ КОНТЕНТ -->
+  <main class="app-main">
+
+    <!-- ПИТАННЯ -->
+    <div class="question-panel" id="question-panel">
+      <div class="question-card">
+        <div class="question-header">
+          <span class="question-number" id="question-number">Питання 1 з —</span>
+          <span class="question-type-badge">Одна правильна відповідь</span>
+        </div>
+        <div class="question-text" id="question-text"></div>
+        <ul class="options-list" id="options-list"></ul>
+        <div class="question-footer">
+          <button class="btn-report" id="btn-report">🚩 Повідомити про помилку</button>
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <button class="btn btn-skip" id="btn-skip">⏭ Пропустити</button>
+            <div class="nav-buttons">
+              <button class="btn btn-ghost" id="btn-prev">← Назад</button>
+              <button class="btn btn-primary" id="btn-next">Далі →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- НАВІГАТОР -->
+    <aside class="navigator-panel">
+      <div class="navigator-card">
+        <div class="navigator-title">Навігація</div>
+        <div class="nav-grid" id="nav-grid"></div>
+        <div class="nav-legend">
+          <div class="legend-item"><span class="legend-dot dot-untouched"></span><span>Не переглядав</span></div>
+          <div class="legend-item"><span class="legend-dot dot-active"></span><span>Зараз тут</span></div>
+          <div class="legend-item"><span class="legend-dot dot-answered"></span><span>Відповів</span></div>
+          <div class="legend-item"><span class="legend-dot dot-skipped"></span><span>Пропустив</span></div>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-label">
+            <span>Прогрес</span><span id="progress-text">0 / —</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+        <button class="btn btn-finish" id="btn-finish-nav" style="margin-top: 1rem; width: 100%; justify-content: center;">
+          ✓ Завершити тест
+        </button>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- МОДАЛКА: Довідник -->
+  <div class="modal-overlay" id="modal-reference">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">📐 Довідкові матеріали</span>
+        <button class="modal-close">✕</button>
+      </div>
+      <div class="modal-body" id="modal-reference-body">
+        Завантаження...
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛКА: Репорт -->
+  <div class="modal-overlay" id="modal-report">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">🚩 Повідомити про помилку</span>
+        <button class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:0.78rem; color:var(--color-text-muted); background:var(--color-surface-2); border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:8px 12px; margin-bottom:1.25rem; font-family:var(--font-mono);">
+          🎯 Контекст: <span id="report-question-context">—</span>
+        </div>
+        <div class="report-form">
+          <div class="form-group">
+            <label class="form-label" for="report-type">Тип помилки</label>
+            <select class="form-select" id="report-type">
+              <option value="wrong_answer">Неправильна правильна відповідь</option>
+              <option value="typo">Друкарська помилка</option>
+              <option value="unclear">Незрозуміле формулювання</option>
+              <option value="other">Інше</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="report-comment">Опишіть проблему</label>
+            <textarea class="form-textarea" id="report-comment" rows="4" placeholder="Наприклад: правильна відповідь А, а не Б..."></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost modal-close">Скасувати</button>
+        <button class="btn btn-primary" id="btn-submit-report">📤 Надіслати репорт</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- api.js завантажується ПЕРЕД test-simulator.js -->
+  <script src="js/api.js"></script>
+  <script src="js/test-simulator.js"></script>
+</body>
+</html>

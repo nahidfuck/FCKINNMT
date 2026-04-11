@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>НМТ Платформа — Обери тест</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Geologica:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style-list.css">
+</head>
+<body>
+
+  <!-- ШАПКА -->
+  <header class="app-header">
+    <div class="header-left">
+      <span class="header-subject-badge">БЕТА</span>
+      <span class="header-title">НМТ Платформа</span>
+    </div>
+    <div class="header-right">
+      <span style="font-size: 0.78rem; color: var(--color-text-muted);">Open Beta</span>
+    </div>
+  </header>
+
+  <!-- HERO-СЕКЦІЯ -->
+  <div class="hero-section">
+    <h1 class="hero-title">Підготовка до НМТ</h1>
+    <p class="hero-subtitle">
+      Пробні тести у форматі реального іспиту. Таймер, статистика, розбір помилок.
+    </p>
+    <!-- Бета-банер -->
+    <div class="beta-banner">
+      🧪 <strong>Відкрита бета:</strong> зараз доступні безкоштовні тести.
+      Платні відкриються після офіційного релізу.
+    </div>
+  </div>
+
+  <!-- ОСНОВНИЙ КОНТЕНТ -->
+  <main class="list-main">
+
+    <!-- Фільтри по предметах -->
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all">Всі предмети</button>
+      <button class="filter-btn" data-filter="math">📐 Математика</button>
+      <button class="filter-btn" data-filter="ukrainian">📖 Укр. мова</button>
+      <button class="filter-btn" data-filter="history">🏛 Історія</button>
+    </div>
+
+    <!-- Сітка карток тестів (заповнюється JS) -->
+    <div class="tests-grid" id="tests-grid">
+      <!-- Скелетони з'являться тут під час завантаження -->
+    </div>
+
+  </main>
+
+  <!-- TOAST-КОНТЕЙНЕР -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/tests-list.js"></script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+/*
+ * Додаток до style.css — стилі для сторінки списку тестів
+ * =========================================================
+ * Цей файл підключається ПІСЛЯ основного style.css.
+ * Він додає нові компоненти, не перезаписуючи базові.
+ *
+ * Підключення в HTML:
+ *   <link rel="stylesheet" href="style.css">
+ *   <link rel="stylesheet" href="style-list.css">
+ */
+
+/* ============================================
+   HERO-СЕКЦІЯ
+   ============================================ */
+.hero-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 1.5rem;
+  text-align: center;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 0.75rem;
+  /* Градієнтний текст */
+  background: linear-gradient(135deg, var(--color-text) 40%, var(--color-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  max-width: 500px;
+  margin: 0 auto 1.5rem;
+  line-height: 1.6;
+}
+
+/* Бета-банер */
+.beta-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--color-blue);
+  background: var(--color-blue-bg);
+  border: 1px solid rgba(88, 166, 255, 0.25);
+  padding: 8px 18px;
+  border-radius: 100px;
+  margin-bottom: 0;
+}
+
+/* ============================================
+   СПИСОК ТЕСТІВ — ЛЕЙАУТ
+   ============================================ */
+.list-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* ============================================
+   ФІЛЬТРИ
+   ============================================ */
+.filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.filter-btn {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 8px 16px;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.filter-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.filter-btn.active {
+  color: var(--color-accent);
+  background: var(--color-accent-glow);
+  border-color: rgba(240, 165, 0, 0.4);
+}
+
+/* ============================================
+   СІТКА ТЕСТІВ
+   ============================================ */
+.tests-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+/* ============================================
+   КАРТКА ТЕСТУ
+   ============================================ */
+.test-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: all var(--transition-normal);
+  animation: fade-in 0.3s ease both;
+}
+
+.test-card:hover {
+  border-color: var(--color-border-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card);
+}
+
+/* Заблокована картка — трохи приглушена */
+.test-card--locked {
+  opacity: 0.75;
+}
+
+.test-card--locked:hover {
+  border-color: var(--color-border);
+  transform: none;
+  box-shadow: none;
+}
+
+.test-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.test-subject-badge {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  background: var(--color-accent-glow);
+  border: 1px solid rgba(240, 165, 0, 0.3);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+}
+
+/* Бейджі доступу */
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 100px;
+}
+
+.badge-free {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
+.badge-premium {
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+}
+
+.test-card-title {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.test-card-desc {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  flex: 1; /* Тягне картку вниз, вирівнюючи висоту */
+}
+
+.test-card-meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  font-size: 0.78rem;
+  color: var(--color-text-faint);
+}
+
+.test-card-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Кнопка "Почати тест" */
+.btn-start {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent-glow);
+  color: var(--color-accent);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-start:hover {
+  background: var(--color-accent);
+  color: #000;
+  box-shadow: 0 0 20px var(--color-accent-glow);
+}
+
+.btn-start:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Кнопка заблокованого тесту */
+.btn-locked {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--color-border);
+  background: transparent;
+  color: var(--color-text-faint);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-locked:hover {
+  color: var(--color-text-muted);
+  border-color: var(--color-text-muted);
+  background: var(--color-surface-2);
+}
+
+/* ============================================
+   СКЕЛЕТОН-ЗАВАНТАЖЕННЯ
+   ============================================ */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton {
+  pointer-events: none;
+}
+
+/* Базовий скелетон-елемент */
+.skeleton-badge,
+.skeleton-line,
+.skeleton-btn {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-border)    50%,
+    var(--color-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-badge  { width: 80px; height: 20px; margin-bottom: 0.5rem; }
+.skeleton-line   { height: 14px; margin-bottom: 0.5rem; }
+.skeleton-line.long   { width: 90%; }
+.skeleton-line.medium { width: 70%; }
+.skeleton-line.short  { width: 50%; }
+.skeleton-btn    { width: 100%; height: 38px; margin-top: 1rem; }
+
+/* ============================================
+   ПОРОЖНІЙ СТАН / ПОМИЛКА
+   ============================================ */
+.empty-state,
+.error-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--color-text-muted);
+}
+
+.empty-icon,
+.error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* ============================================
+   АДАПТИВНІСТЬ
+   ============================================ */
+@media (max-width: 768px) {
+  .hero-section { padding: 2rem 1rem 1rem; }
+  .list-main    { padding: 1rem; }
+  .tests-grid   { grid-template-columns: 1fr; }
+}
