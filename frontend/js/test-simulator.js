@@ -265,8 +265,9 @@ function setupEventListeners() {
  * Зберігає в localStorage одразу, на сервер — асинхронно.
  */
 function handleAnswerSelect(questionId, optionId) {
-  state.answers[questionId] = optionId;
-  delete state.skipped[questionId];
+  // ДОДАЄМО parseInt ТУТ:
+  state.answers[parseInt(questionId)] = parseInt(optionId);
+  delete state.skipped[parseInt(questionId)];
 
   // Оновлюємо UI миттєво
   const question = state.testData.questions[state.currentQuestionIndex];
