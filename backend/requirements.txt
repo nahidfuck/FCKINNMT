@@ -1,0 +1,15 @@
+# --- Core ---
+fastapi
+uvicorn[standard]
+
+# --- Database ---
+sqlalchemy>=2.0.0
+
+# --- Configuration & Validation ---
+pydantic
+pydantic-settings
+
+# --- Authentication & Security ---
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
