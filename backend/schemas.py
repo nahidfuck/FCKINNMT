@@ -192,3 +192,34 @@ class BugReportPublic(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============================================
+# AUTH SCHEMAS
+# ============================================
+
+class UserRegister(BaseModel):
+    """Тіло POST /api/auth/register."""
+    email:     str       = Field(..., min_length=5, max_length=255)
+    password:  str       = Field(..., min_length=8, max_length=100,
+                                 description="Мінімум 8 символів")
+    full_name: Optional[str] = Field(None, max_length=200)
+
+
+class UserPublic(BaseModel):
+    """Публічні дані юзера — те що повертаємо клієнту (без пароля)."""
+    id:         int
+    email:      str
+    full_name:  Optional[str] = None
+    role:       str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TokenResponse(BaseModel):
+    """Відповідь після успішного логіну."""
+    access_token: str
+    token_type:   str = "bearer"
+    user:         UserPublic    # Зручно: повертаємо дані юзера разом з токеном

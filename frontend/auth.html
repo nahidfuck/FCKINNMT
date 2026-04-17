@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>НМТ Платформа — Вхід</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Geologica:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Стилі специфічні для auth-сторінки */
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Тонка сітка на фоні для текстури */
+      background-image:
+        linear-gradient(var(--color-border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      background-position: center center;
+      padding: 1rem;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-float);
+      overflow: hidden;
+    }
+
+    /* Логотип вгорі картки */
+    .auth-logo {
+      text-align: center;
+      padding: 2rem 2rem 0;
+    }
+
+    .auth-logo-badge {
+      display: inline-block;
+      font-family: var(--font-display);
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+      background: var(--color-accent-glow);
+      border: 1px solid rgba(240, 165, 0, 0.3);
+      padding: 4px 12px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.75rem;
+    }
+
+    .auth-logo-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--color-text);
+    }
+
+    /* Вкладки Вхід / Реєстрація */
+    .auth-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      padding: 1.5rem 2rem 0;
+    }
+
+    .auth-tab {
+      padding: 10px;
+      text-align: center;
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--color-text-muted);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid var(--color-border);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .auth-tab.active {
+      color: var(--color-accent);
+      border-bottom-color: var(--color-accent);
+    }
+
+    .auth-tab:hover:not(.active) {
+      color: var(--color-text);
+    }
+
+    /* Тіло форми */
+    .auth-body {
+      padding: 1.75rem 2rem 2rem;
+    }
+
+    /* Панелі вкладок */
+    .auth-panel {
+      display: none;
+    }
+
+    .auth-panel.active {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      animation: fade-in 0.2s ease;
+    }
+
+    /* Поля форми */
+    .auth-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .auth-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--color-text-muted);
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-text);
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+      /* Дозволяємо вводити текст (перевизначає user-select: none з body) */
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .auth-input:focus {
+      outline: none;
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px var(--color-accent-glow);
+    }
+
+    .auth-input.error {
+      border-color: var(--color-danger);
+      box-shadow: 0 0 0 3px var(--color-danger-bg);
+    }
+
+    /* Повідомлення про помилку під полем */
+    .field-error {
+      font-size: 0.75rem;
+      color: var(--color-danger);
+      display: none;
+    }
+
+    .field-error.visible {
+      display: block;
+    }
+
+    /* Загальна помилка (від сервера) */
+    .auth-error-banner {
+      background: var(--color-danger-bg);
+      border: 1px solid var(--color-danger);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 0.83rem;
+      color: var(--color-danger);
+      display: none;
+    }
+
+    .auth-error-banner.visible {
+      display: block;
+    }
+
+    /* Кнопка сабміту */
+    .auth-submit {
+      width: 100%;
+      padding: 12px;
+      margin-top: 0.25rem;
+      background: var(--color-accent);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #000;
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      position: relative;
+    }
+
+    .auth-submit:hover:not(:disabled) {
+      background: #ffc11a;
+      box-shadow: 0 0 24px var(--color-accent-glow);
+      transform: translateY(-1px);
+    }
+
+    .auth-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Спінер всередині кнопки */
+    .auth-submit .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+
+    .auth-submit.loading .btn-text { display: none; }
+    .auth-submit.loading .spinner  { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Посилання під формою */
+    .auth-footer-link {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--color-text-muted);
+      margin-top: 0.25rem;
+    }
+
+    .auth-footer-link a {
+      color: var(--color-blue);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .auth-footer-link a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <div class="auth-card">
+
+    <!-- Логотип -->
+    <div class="auth-logo">
+      <div class="auth-logo-badge">НМТ Платформа</div>
+      <div class="auth-logo-title">Підготовка до іспиту</div>
+    </div>
+
+    <!-- Вкладки -->
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">Вхід</button>
+      <button class="auth-tab" data-tab="register">Реєстрація</button>
+    </div>
+
+    <div class="auth-body">
+
+      <!-- Банер помилки від сервера -->
+      <div class="auth-error-banner" id="auth-error"></div>
+
+      <!-- ===== ФОРМА ВХОДУ ===== -->
+      <div class="auth-panel active" id="panel-login">
+
+        <div class="auth-field">
+          <label class="auth-label" for="login-email">Email</label>
+          <input class="auth-input" type="email" id="login-email"
+            placeholder="you@example.com" autocomplete="email">
+          <span class="field-error" id="login-email-error"></span>
+        </div>
+
+        <div class="auth-field">
+          <label class="auth-label" for="login-password">Пароль</label>
+          <input class="auth-input" type="password" id="login-password"
+            placeholder="••••••••" autocomplete="current-password">
+          <span class="field-error" id="login-password-error"></span>
+        </div>
+
+        <button class="auth-submit" id="btn-login">
+          <span class="btn-text">Увійти →</span>
+          <span class="spinner"></span>
+        </button>
+
+        <div class="auth-footer-link">
+          Немає акаунту?
+          <a onclick="switchTab('register')">Зареєструватись</a>
+        </div>
+
+      </div>
+
+      <!-- ===== ФОРМА РЕЄСТРАЦІЇ ===== -->
+      <div class="auth-panel" id="panel-register">
+
+        <div class="auth-field">
+          <label class="auth-label" for="reg-name">Ім'я (необов'язково)</label>
+          <input class="auth-input" type="text" id="reg-name"
+            placeholder="Іван Петренко" autocomplete="name">
+        </div>
+
+        <div class="auth-field">
+          <label class="auth-label" for="reg-email">Email</label>
+          <input class="auth-input" type="email" id="reg-email"
+            placeholder="you@example.com" autocomplete="email">
+          <span class="field-error" id="reg-email-error"></span>
+        </div>
+
+        <div class="auth-field">
+          <label class="auth-label" for="reg-password">Пароль</label>
+          <input class="auth-input" type="password" id="reg-password"
+            placeholder="Мінімум 8 символів" autocomplete="new-password">
+          <span class="field-error" id="reg-password-error"></span>
+        </div>
+
+        <button class="auth-submit" id="btn-register">
+          <span class="btn-text">Створити акаунт →</span>
+          <span class="spinner"></span>
+        </button>
+
+        <div class="auth-footer-link">
+          Вже є акаунт?
+          <a onclick="switchTab('login')">Увійти</a>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

@@ -22,7 +22,13 @@ class Settings(BaseSettings):
     # Потім змінимо на: postgresql://user:pass@localhost/nmt
     DATABASE_URL: str = "sqlite:///./nmt.db"
 
-    # --- Feature Flags ---
+    # --- JWT ---
+    # Секретний ключ для підпису токенів.
+    # У продакшені ОБОВ'ЯЗКОВО замінити на довгий випадковий рядок і тримати в .env!
+    # Генерація: python -c "import secrets; print(secrets.token_hex(32))"
+    SECRET_KEY: str = "change-me-in-production-use-secrets-token-hex-32"
+
+        # --- Feature Flags ---
     # False = Soft Launch (бета): платні тести заблоковані
     # True  = Після релізу: платіжна система активна
     PAYMENTS_ENABLED: bool = False

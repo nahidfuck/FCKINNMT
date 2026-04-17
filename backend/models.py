@@ -214,3 +214,33 @@ class BugReport(Base):
     comment     = Column(Text, nullable=False)
     status      = Column(String(20), default="new")   # new, reviewed, resolved
     created_at  = Column(DateTime, default=datetime.utcnow)
+
+
+class UserRole(str, enum.Enum):
+    """Ролі користувачів платформи."""
+    student = "student"   # Звичайний студент (дефолт)
+    teacher = "teacher"   # Вчитель (B2B функціонал, Крок 5+)
+    admin   = "admin"     # Адміністратор
+
+
+class User(Base):
+    """
+    Таблиця користувачів.
+
+    Поле `hashed_password` — НІКОЛИ не зберігаємо сирий пароль.
+    passlib/bcrypt хешує його перед збереженням (utils/security.py).
+
+    Поле `role` визначає доступні функції:
+      - student → може проходити тести
+      - teacher → може переглядати статистику своїх учнів (B2B, пізніше)
+      - admin   → повний доступ
+    """
+    __tablename__ = "users"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    email           = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name       = Column(String(200), nullable=True)
+    role            = Column(Enum(UserRole), default=UserRole.student, nullable=False)
+    is_active       = Column(Boolean, default=True)
+    created_at      = Column(DateTime, default=datetime.utcnow)

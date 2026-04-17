@@ -24,6 +24,9 @@
  */
 const BASE_URL = 'http://localhost:8000';
 
+// Ключ в localStorage де зберігається JWT токен (той самий що в auth.js)
+const TOKEN_KEY = 'nmt_token';
+
 // ============================================
 // БАЗОВИЙ HTTP-КЛІЄНТ
 // ============================================
@@ -40,10 +43,16 @@ const BASE_URL = 'http://localhost:8000';
 async function request(path, options = {}) {
   const url = `${BASE_URL}${path}`;
 
+  // Читаємо токен з localStorage (зберігається при логіні в auth.js)
+  const token = localStorage.getItem(TOKEN_KEY);
+
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
-      // Тут пізніше додамо: 'Authorization': `Bearer ${getToken()}`
+      // Якщо токен є — додаємо заголовок авторизації до КОЖНОГО запиту.
+      // Сервер перевірить його у залежності get_current_user.
+      // Якщо токена нема (гість) — заголовок просто відсутній.
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     },
   };
 
@@ -76,6 +85,14 @@ async function request(path, options = {}) {
 
   // Якщо статус не 2xx — кидаємо помилку
   if (!response.ok) {
+    // 401 Unauthorized — токен протухлий або невалідний.
+    // Очищаємо localStorage і відправляємо на сторінку логіну.
+    if (response.status === 401) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem('nmt_user');
+      window.location.href = 'auth.html';
+      return; // Зупиняємо виконання — відбудеться redirect
+    }
     const message = data?.detail?.message || data?.detail || 'Невідома помилка сервера';
     const code    = data?.detail?.code    || 'SERVER_ERROR';
     throw new ApiError(message, response.status, code);
@@ -186,6 +203,47 @@ const api = {
       method: 'POST',
       body: JSON.stringify(report),
     });
+  },
+
+  // --- АВТОРИЗАЦІЯ ---
+
+  /**
+   * Логін через email + пароль.
+   * ВАЖЛИВО: /api/auth/token приймає form-data (не JSON!) — стандарт OAuth2.
+   * @returns {Promise<{access_token, user}>}
+   */
+  login(email, password) {
+    // FormData або URLSearchParams — FastAPI OAuth2PasswordRequestForm вимагає саме це
+    const formData = new URLSearchParams();
+    formData.append('username', email); // OAuth2 стандарт: поле називається username
+    formData.append('password', password);
+
+    // Не передаємо 'Content-Type': 'application/json' — форма має свій тип
+    return request('/api/auth/token', {
+      method: 'POST',
+      body: formData,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+  },
+
+  /**
+   * Реєстрація нового акаунту.
+   * @param {{ email, password, full_name }} userData
+   * @returns {Promise<{access_token, user}>}
+   */
+  register(userData) {
+    return request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+  },
+
+  /**
+   * Отримати дані поточного авторизованого юзера.
+   * Вимагає валідний токен в localStorage.
+   */
+  getMe() {
+    return request('/api/auth/me');
   },
 
   // --- УТИЛІТИ ---

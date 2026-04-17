@@ -2,28 +2,32 @@
 main.py — Точка входу FastAPI додатку
 ======================================
 Запуск: uvicorn main:app --reload --port 8000
+
+Структура папок (відносно backend/):
+  ../frontend/   ← фронтенд, FastAPI роздає його як статику
 """
-import os
+
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from config import settings
 from database import engine, Base
-from routers import tests, sessions, reports
+from routers import tests, sessions, reports, auth
 
-# Автоматично створює таблиці якщо їх нема
-# (на продакшені краще використовувати Alembic міграції)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    docs_url="/api/docs",      # Swagger UI — http://localhost:8000/api/docs
+    docs_url="/api/docs",
     redoc_url="/api/redoc",
+    swagger_ui_oauth2_redirect_url="/api/docs/oauth2-redirect",
 )
 
-# CORS — дозволяємо фронтенду звертатися до API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -31,21 +35,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Підключаємо роутери
+# --- API роутери (підключаємо ДО статики, щоб /api/* мав пріоритет) ---
 app.include_router(tests.router)
 app.include_router(sessions.router)
 app.include_router(reports.router)
+app.include_router(auth.router)
 
-# Вказуємо шлях до папки frontend (вона на рівень вище за backend)
-frontend_path = os.path.join(os.path.dirname(__file__), "../frontend")
-# Монтуємо статику. html=True дозволяє відкривати .html файли
-app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 
 @app.get("/api/health", tags=["Системні"])
 def health_check():
-    """Перевірка що сервер живий. Корисно для моніторингу."""
     return {
         "status": "ok",
         "version": settings.APP_VERSION,
         "payments_enabled": settings.PAYMENTS_ENABLED,
     }
+
+
+# --- Статичні файли фронтенду ---
+# Path(__file__) — це backend/main.py
+# .parent.parent — піднімаємось на рівень вище (корінь проєкту)
+# / "frontend"   — папка з HTML/CSS/JS
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+
+if FRONTEND_DIR.exists():
+    # Роздаємо всі файли з frontend/ за їх іменами
+    # http://localhost:8000/style.css → frontend/style.css
+    # http://localhost:8000/js/api.js → frontend/js/api.js
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+else:
+    # Якщо папки нема — просто попереджаємо, API продовжує працювати
+    import warnings
+    warnings.warn(f"Папку фронтенду не знайдено: {FRONTEND_DIR}")
