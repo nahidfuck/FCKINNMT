@@ -11,27 +11,18 @@
 </head>
 <body>
 
-  <!-- ЕКРАН ЗАВАНТАЖЕННЯ (показується поки тест вантажиться з API) -->
-  <div id="loading-screen" style="
-    position: fixed; inset: 0; z-index: 9999;
-    background: var(--color-bg);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 1rem;
-  ">
-    <div style="
-      width: 40px; height: 40px;
-      border: 3px solid var(--color-border);
-      border-top-color: var(--color-accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    "></div>
-    <p style="color: var(--color-text-muted); font-size: 0.9rem;">Завантаження тесту...</p>
-  </div>
+  <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 
-  <style>
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+  <!-- ЕКРАН ЗАВАНТАЖЕННЯ -->
+  <div id="loading-screen" style="
+    position:fixed;inset:0;z-index:9999;background:var(--color-bg);
+    display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:1rem;">
+    <div style="width:40px;height:40px;border:3px solid var(--color-border);
+      border-top-color:var(--color-accent);border-radius:50%;
+      animation:spin 0.8s linear infinite;"></div>
+    <p style="color:var(--color-text-muted);font-size:0.9rem;">Завантаження тесту...</p>
+  </div>
 
   <!-- ШАПКА -->
   <header class="app-header">
@@ -48,8 +39,10 @@
     </div>
   </header>
 
-  <!-- ГОЛОВНИЙ КОНТЕНТ -->
-  <main class="app-main">
+  <!-- =====================================================
+       СИМУЛЯТОР (ховається після завершення тесту)
+       ===================================================== -->
+  <main class="app-main" id="simulator-container">
 
     <!-- ПИТАННЯ -->
     <div class="question-panel" id="question-panel">
@@ -62,7 +55,7 @@
         <ul class="options-list" id="options-list"></ul>
         <div class="question-footer">
           <button class="btn-report" id="btn-report">🚩 Повідомити про помилку</button>
-          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
             <button class="btn btn-skip" id="btn-skip">⏭ Пропустити</button>
             <div class="nav-buttons">
               <button class="btn btn-ghost" id="btn-prev">← Назад</button>
@@ -92,13 +85,25 @@
             <div class="progress-fill" id="progress-fill" style="width:0%"></div>
           </div>
         </div>
-        <button class="btn btn-finish" id="btn-finish-nav" style="margin-top: 1rem; width: 100%; justify-content: center;">
+        <button class="btn btn-finish" id="btn-finish-nav"
+          style="margin-top:1rem;width:100%;justify-content:center;">
           ✓ Завершити тест
         </button>
       </div>
     </aside>
 
   </main>
+
+  <!-- =====================================================
+       ЕКРАН РЕЗУЛЬТАТІВ (прихований, показується після фінішу)
+       Структура: шапка з балом → таблиця деталей → кнопки
+       ===================================================== -->
+  <div id="results-container" style="display:none;">
+
+    <!-- Внутрішній контент генерується JS через renderResults() -->
+    <!-- JS вставить сюди HTML через results-container.innerHTML -->
+
+  </div>
 
   <!-- МОДАЛКА: Довідник -->
   <div class="modal-overlay" id="modal-reference">
@@ -107,9 +112,7 @@
         <span class="modal-title">📐 Довідкові матеріали</span>
         <button class="modal-close">✕</button>
       </div>
-      <div class="modal-body" id="modal-reference-body">
-        Завантаження...
-      </div>
+      <div class="modal-body" id="modal-reference-body">Завантаження...</div>
     </div>
   </div>
 
@@ -121,7 +124,10 @@
         <button class="modal-close">✕</button>
       </div>
       <div class="modal-body">
-        <div style="font-size:0.78rem; color:var(--color-text-muted); background:var(--color-surface-2); border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:8px 12px; margin-bottom:1.25rem; font-family:var(--font-mono);">
+        <div style="font-size:0.78rem;color:var(--color-text-muted);
+          background:var(--color-surface-2);border:1px solid var(--color-border);
+          border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:1.25rem;
+          font-family:var(--font-mono);">
           🎯 Контекст: <span id="report-question-context">—</span>
         </div>
         <div class="report-form">
@@ -136,7 +142,8 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="report-comment">Опишіть проблему</label>
-            <textarea class="form-textarea" id="report-comment" rows="4" placeholder="Наприклад: правильна відповідь А, а не Б..."></textarea>
+            <textarea class="form-textarea" id="report-comment" rows="4"
+              placeholder="Наприклад: правильна відповідь А, а не Б..."></textarea>
           </div>
         </div>
       </div>
@@ -149,7 +156,6 @@
 
   <div class="toast-container" id="toast-container"></div>
 
-  <!-- api.js завантажується ПЕРЕД test-simulator.js -->
   <script src="js/api.js"></script>
   <script src="js/test-simulator.js"></script>
 </body>
