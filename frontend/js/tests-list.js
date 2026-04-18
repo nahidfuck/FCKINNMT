@@ -1,214 +1,372 @@
 /**
- * tests-list.js — Логіка сторінки зі списком тестів
- * ===================================================
- * Ця сторінка — головна для студента.
- * Показує всі тести: безкоштовні (доступні) та платні (з замком).
- *
- * Потік:
- * 1. Завантажуємо список тестів з API
- * 2. Рендеримо картки — для кожного тесту своя картка
- * 3. Клік на доступний тест → POST /sessions → переходимо на test.html
- * 4. Клік на заблокований тест → показуємо toast "Скоро"
+ * tests-list.js — Логіка головного дашборду
+ * ===========================================
+ * Ключові функції:
+ * 1. Перевірка авторизації при завантаженні
+ * 2. Відображення імені юзера в шапці
+ * 3. Завантаження тестів з API
+ * 4. Групування тестів за предметами
+ * 5. Обробка is_locked (бета-лок)
+ * 6. Старт сесії та редірект на симулятор
  */
+
+// ============================================
+// КОНСТАНТИ
+// ============================================
+
 
 // ============================================
 // ІНІЦІАЛІЗАЦІЯ
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // КРОК 1: Перевірка авторизації
+  // Якщо токена нема — редірект на auth.html
+  if (!checkAuth()) {
+    return; // Зупиняємо виконання, redirect вже відбувся
+  }
+
+  // КРОК 2: Відображення імені юзера в шапці
+  displayUserInfo();
+
+  // КРОК 3: Підключення обробників
+  setupEventListeners();
+
+  // КРОК 4: Завантаження та рендер тестів
   await loadAndRenderTests();
-  setupFilterListeners();
 });
 
 // ============================================
-// ЗАВАНТАЖЕННЯ ТА РЕНДЕР
+// АВТОРИЗАЦІЯ
 // ============================================
 
 /**
- * Головна функція: завантажує тести і рендерить їх.
- * @param {string|null} subjectSlug — фільтр по предмету
+ * Перевіряє чи користувач авторизований.
+ * Якщо ні — робить редірект на auth.html.
+ * @returns {boolean} true якщо авторизований, false якщо ні (після redirect)
  */
-async function loadAndRenderTests(subjectSlug = null) {
-  const grid = document.getElementById('tests-grid');
-
-  // Показуємо скелетон-завантаження
-  renderSkeletons(grid);
-
-  try {
-    const tests = await api.getTests(subjectSlug);
-    renderTestCards(grid, tests);
-  } catch (err) {
-    renderError(grid, err);
+function checkAuth() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  
+  if (!token) {
+    // Токена нема → не авторизований → на сторінку логіну
+    window.location.href = 'auth.html';
+    return false;
   }
+
+  // Токен є → все ОК, продовжуємо
+  return true;
 }
 
 /**
- * Рендерить скелетон-картки поки дані завантажуються.
- * Це краще ніж спінер — одразу видно скільки тестів буде.
+ * Відображає ім'я юзера в шапці та hero-секції.
+ * Використовує getCurrentUser() з auth.js.
  */
-function renderSkeletons(container) {
-  container.innerHTML = Array(6).fill(0).map(() => `
-    <div class="test-card skeleton">
-      <div class="skeleton-badge"></div>
-      <div class="skeleton-line long"></div>
-      <div class="skeleton-line short"></div>
-      <div class="skeleton-line medium"></div>
-      <div class="skeleton-btn"></div>
-    </div>
-  `).join('');
-}
+function displayUserInfo() {
+  // getCurrentUser() визначена в auth.js і читає дані з localStorage
+  const user = getCurrentUser();
 
-/**
- * Рендерить картки тестів.
- * @param {HTMLElement} container
- * @param {Array} tests — масив тестів з API
- */
-function renderTestCards(container, tests) {
-  if (tests.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">📭</div>
-        <p>Тестів не знайдено</p>
-      </div>
-    `;
+  if (!user) {
+    // Якщо дані юзера нема (токен є, але user_key якось відсутній)
+    // — показуємо тільки email або "Користувач"
+    document.getElementById('user-name').textContent = 'Користувач';
+    document.getElementById('hero-user-name').textContent = 'користувач';
     return;
   }
 
-  container.innerHTML = tests.map(test => buildTestCardHTML(test)).join('');
+  // Визначаємо що показувати: ім'я або email
+  const displayName = user.full_name || user.email.split('@')[0]; // "ivan" з "ivan@gmail.com"
 
-  // Підключаємо обробники кліків на картки
-  container.querySelectorAll('.test-card-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const testId    = parseInt(btn.dataset.testId, 10);
-      const isLocked  = btn.dataset.locked === 'true';
-      handleTestClick(testId, isLocked);
-    });
-  });
-}
-
-/**
- * Будує HTML для однієї картки тесту.
- * @param {object} test — об'єкт тесту з API
- * @returns {string} HTML-рядок
- */
-function buildTestCardHTML(test) {
-  const durationText = formatDuration(test.duration);
-  const subjectIcon  = test.subject.icon || '📝';
-
-  // Кнопка залежить від стану тесту
-  const buttonHTML = test.is_locked
-    ? `<button class="test-card-btn btn-locked" data-test-id="${test.id}" data-locked="true">
-         🔒 Відкриється після релізу
-       </button>`
-    : `<button class="test-card-btn btn-start" data-test-id="${test.id}" data-locked="false">
-         Почати тест →
-       </button>`;
-
-  // Бейдж "Безкоштовно" або "Преміум"
-  const accessBadge = test.is_premium
-    ? `<span class="badge badge-premium">⭐ Преміум</span>`
-    : `<span class="badge badge-free">✓ Безкоштовно</span>`;
-
-  return `
-    <div class="test-card ${test.is_locked ? 'test-card--locked' : ''}">
-      <div class="test-card-header">
-        <span class="test-subject-badge">${subjectIcon} ${test.subject.name}</span>
-        ${accessBadge}
-      </div>
-
-      <h2 class="test-card-title">${test.title}</h2>
-
-      ${test.description
-        ? `<p class="test-card-desc">${test.description}</p>`
-        : ''}
-
-      <div class="test-card-meta">
-        <span class="meta-item">⏱ ${durationText}</span>
-        <span class="meta-item">📋 ${test.question_count} питань</span>
-      </div>
-
-      <div class="test-card-footer">
-        ${buttonHTML}
-      </div>
-    </div>
-  `;
-}
-
-/**
- * Рендерить повідомлення про помилку.
- */
-function renderError(container, err) {
-  const isNetwork = err instanceof ApiError && err.status === 0;
-  container.innerHTML = `
-    <div class="error-state">
-      <div class="error-icon">${isNetwork ? '📡' : '⚠️'}</div>
-      <p>${isNetwork
-        ? 'Не вдалося підключитися до сервера. Переконайтеся що бекенд запущено.'
-        : `Помилка завантаження: ${err.message}`
-      }</p>
-      <button class="btn btn-ghost" onclick="loadAndRenderTests()">
-        ↺ Спробувати ще раз
-      </button>
-    </div>
-  `;
+  // Оновлюємо обидва місця
+  document.getElementById('user-name').textContent = displayName;
+  document.getElementById('hero-user-name').textContent = displayName;
 }
 
 // ============================================
 // ОБРОБНИКИ ПОДІЙ
 // ============================================
 
+function setupEventListeners() {
+  // Кнопка "Вийти" викликає logout() з auth.js
+  document.getElementById('btn-logout').addEventListener('click', () => {
+    logout(); // функція з auth.js: очищає токен + редірект на auth.html
+  });
+}
+
+// ============================================
+// ЗАВАНТАЖЕННЯ ТА РЕНДЕР ТЕСТІВ
+// ============================================
+
 /**
- * Обробляє клік на картку тесту.
+ * Головна функція: завантажує тести з API та рендерить їх,
+ * групуючи за предметами.
  */
-async function handleTestClick(testId, isLocked) {
-  if (isLocked) {
-    showToast('🔒 Цей тест буде доступний після офіційного релізу платформи', 'default');
-    return;
+async function loadAndRenderTests() {
+  const container = document.getElementById('subjects-container');
+
+  // Показуємо skeleton поки йде завантаження
+  renderSkeletons(container);
+
+  try {
+    // Запит до API (без фільтру по предмету — отримуємо всі тести)
+    const tests = await api.getTests();
+
+    // Перевіряємо чи є тести взагалі
+    if (!tests || tests.length === 0) {
+      showEmptyState();
+      return;
+    }
+
+    // Групуємо тести за предметами
+    const groupedBySubject = groupTestsBySubject(tests);
+
+    // Рендеримо кожен предмет окремою секцією
+    renderSubjectSections(container, groupedBySubject);
+
+    // Перевіряємо чи є хоча б один is_locked тест
+    // Якщо так — показуємо бета-банер
+    const hasLockedTests = tests.some(test => test.is_locked);
+    if (hasLockedTests) {
+      document.getElementById('beta-banner').style.display = 'inline-flex';
+    }
+
+  } catch (err) {
+    // Обробляємо помилку (мережева або від API)
+    showErrorState(err);
+  }
+}
+
+/**
+ * Групує тести за предметами.
+ * Повертає об'єкт виду: { "Математика": [test1, test2], "Укр. мова": [test3] }
+ */
+function groupTestsBySubject(tests) {
+  const grouped = {};
+
+  tests.forEach(test => {
+    const subjectName = test.subject.name;
+
+    if (!grouped[subjectName]) {
+      // Якщо це перший тест з цього предмета — створюємо масив
+      grouped[subjectName] = {
+        subject: test.subject,  // зберігаємо повний об'єкт subject (з icon, slug)
+        tests: []
+      };
+    }
+
+    // Додаємо тест до відповідного предмета
+    grouped[subjectName].tests.push(test);
+  });
+
+  return grouped;
+}
+
+/**
+ * Рендерить секції предметів з тестами.
+ */
+function renderSubjectSections(container, groupedBySubject) {
+  container.innerHTML = ''; // Очищаємо skeleton
+
+  // Перебираємо кожен предмет
+  Object.keys(groupedBySubject).forEach(subjectName => {
+    const { subject, tests } = groupedBySubject[subjectName];
+
+    // Створюємо секцію для цього предмета
+    const section = document.createElement('div');
+    section.className = 'subject-section';
+    section.innerHTML = `
+      <!-- Заголовок предмета -->
+      <div class="subject-header">
+        <span class="subject-icon">${subject.icon || '📚'}</span>
+        <span class="subject-name">${subjectName}</span>
+        <span class="subject-count">${tests.length} ${pluralize(tests.length, 'тест', 'тести', 'тестів')}</span>
+      </div>
+
+      <!-- Сітка тестів для цього предмета -->
+      <div class="tests-grid" id="grid-${subject.slug}"></div>
+    `;
+
+    container.appendChild(section);
+
+    // Рендеримо картки тестів всередині цієї сітки
+    const grid = document.getElementById(`grid-${subject.slug}`);
+    tests.forEach(test => {
+      const card = buildTestCard(test);
+      grid.appendChild(card);
+    });
+  });
+}
+
+/**
+ * Будує DOM-елемент картки одного тесту.
+ * @param {object} test — об'єкт тесту з API
+ * @returns {HTMLElement}
+ */
+function buildTestCard(test) {
+  const card = document.createElement('div');
+  card.className = `test-card ${test.is_locked ? 'test-card--locked' : ''}`;
+
+  // Формуємо текст тривалості
+  const durationText = formatDuration(test.duration);
+
+  // Бейдж доступу (Безкоштовно / Преміум)
+  const accessBadge = test.is_premium
+    ? '<span class="badge badge-premium">⭐ Преміум</span>'
+    : '<span class="badge badge-free">✓ Безкоштовно</span>';
+
+  // Кнопка залежить від is_locked
+  let buttonHTML;
+  if (test.is_locked) {
+    // Заблокований тест — неклікабельна кнопка з замком
+    buttonHTML = `
+      <button class="btn-locked" disabled>
+        🔒 Відкриється після релізу
+      </button>
+    `;
+  } else {
+    // Доступний тест — кнопка "Почати"
+    buttonHTML = `
+      <button class="btn-start" data-test-id="${test.id}">
+        Почати тест →
+      </button>
+    `;
   }
 
-  // Показуємо що щось відбувається
+  card.innerHTML = `
+    <div class="test-card-header">
+      <span class="test-subject-badge">${test.subject.icon || '📝'} ${test.subject.name}</span>
+      ${accessBadge}
+    </div>
+
+    <h2 class="test-card-title">${test.title}</h2>
+
+    ${test.description
+      ? `<p class="test-card-desc">${test.description}</p>`
+      : '<p class="test-card-desc" style="opacity: 0.5;">Пробний тест для підготовки</p>'}
+
+    <div class="test-card-meta">
+      <span class="meta-item">⏱ ${durationText}</span>
+      <span class="meta-item">📋 ${test.question_count} ${pluralize(test.question_count, 'питання', 'питання', 'питань')}</span>
+    </div>
+
+    <div class="test-card-footer">
+      ${buttonHTML}
+    </div>
+  `;
+
+  // Якщо тест НЕ заблокований — додаємо обробник кліку на кнопку
+  if (!test.is_locked) {
+    const btn = card.querySelector('.btn-start');
+    btn.addEventListener('click', () => handleStartTest(test.id));
+  }
+
+  // Легка анімація появи картки
+  card.style.animation = 'fade-in 0.3s ease both';
+
+  return card;
+}
+
+/**
+ * Обробляє клік на кнопку "Почати тест".
+ * Створює сесію на сервері та робить редірект на симулятор.
+ */
+async function handleStartTest(testId) {
+  // Знаходимо кнопку для візуального feedback
   const btn = document.querySelector(`[data-test-id="${testId}"]`);
+  if (!btn) return;
+
   const originalText = btn.textContent;
   btn.textContent = 'Завантаження...';
   btn.disabled = true;
 
   try {
-    // Створюємо сесію на сервері
+    // КРОК 1: Створюємо сесію на сервері
+    // api.createSession повертає { id, session_token, test_id, ... }
     const session = await api.createSession(testId);
 
-    // Зберігаємо токен сесії в localStorage
-    // test-simulator.js підхопить його при завантаженні
+    // КРОК 2: Зберігаємо токен сесії та ID тесту в localStorage
+    // test-simulator.js використає ці дані при завантаженні
     localStorage.setItem('active_session_token', session.session_token);
     localStorage.setItem('active_test_id', String(testId));
 
-    // Переходимо на сторінку тесту
+    // КРОК 3: Redirect на сторінку симулятора з токеном в URL
     window.location.href = `test.html?session=${session.session_token}`;
 
   } catch (err) {
+    // Відновлюємо кнопку якщо сталася помилка
     btn.textContent = originalText;
     btn.disabled = false;
 
+    // Показуємо помилку користувачу
     const message = err instanceof ApiError
       ? err.message
-      : 'Не вдалося розпочати тест. Спробуйте ще раз.';
+      : 'Не вдалося розпочати тест. Перевірте підключення.';
+    
     showToast(`❌ ${message}`, 'error');
+    console.error('Помилка створення сесії:', err);
   }
 }
 
-/**
- * Підключає фільтри по предметах.
- */
-function setupFilterListeners() {
-  document.querySelectorAll('[data-filter]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      // Знімаємо активний клас з усіх
-      document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+// ============================================
+// СТАНИ UI (завантаження / помилка / порожньо)
+// ============================================
 
-      const slug = btn.dataset.filter === 'all' ? null : btn.dataset.filter;
-      loadAndRenderTests(slug);
-    });
-  });
+/**
+ * Показує skeleton поки тести завантажуються.
+ */
+function renderSkeletons(container) {
+  container.innerHTML = `
+    <!-- Skeleton для 2 предметів -->
+    <div class="skeleton-subject">
+      <div class="skeleton-subject-header">
+        <div class="skeleton-icon"></div>
+        <div class="skeleton-text"></div>
+      </div>
+      <div class="tests-grid">
+        ${Array(3).fill('<div class="test-card skeleton"></div>').join('')}
+      </div>
+    </div>
+    <div class="skeleton-subject">
+      <div class="skeleton-subject-header">
+        <div class="skeleton-icon"></div>
+        <div class="skeleton-text"></div>
+      </div>
+      <div class="tests-grid">
+        ${Array(2).fill('<div class="test-card skeleton"></div>').join('')}
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Показує стан "порожньо" якщо тестів нема взагалі.
+ */
+function showEmptyState() {
+  document.getElementById('subjects-container').style.display = 'none';
+  document.getElementById('empty-state').style.display = 'flex';
+}
+
+/**
+ * Показує стан "помилка" при невдалому завантаженні.
+ */
+function showErrorState(err) {
+  document.getElementById('subjects-container').style.display = 'none';
+
+  const errorStateEl = document.getElementById('error-state');
+  const errorMessageEl = document.getElementById('error-message');
+
+  // Визначаємо текст помилки
+  if (err instanceof ApiError && err.status === 0) {
+    errorMessageEl.textContent = 'Не вдалося підключитися до сервера. Перевірте з\'єднання.';
+  } else if (err instanceof ApiError) {
+    errorMessageEl.textContent = `Помилка: ${err.message}`;
+  } else {
+    errorMessageEl.textContent = 'Не вдалося завантажити тести. Спробуйте пізніше.';
+  }
+
+  errorStateEl.style.display = 'flex';
+
+  console.error('Помилка завантаження тестів:', err);
 }
 
 // ============================================
@@ -216,18 +374,36 @@ function setupFilterListeners() {
 // ============================================
 
 /**
- * Форматує секунди у читабельний рядок.
+ * Форматує секунди у читабельний рядок тривалості.
  * 600 → "10 хв", 10800 → "3 год"
  */
 function formatDuration(seconds) {
-  if (seconds < 3600) return `${Math.round(seconds / 60)} хв`;
+  if (seconds < 3600) {
+    return `${Math.round(seconds / 60)} хв`;
+  }
   const h = Math.floor(seconds / 3600);
   const m = Math.round((seconds % 3600) / 60);
   return m > 0 ? `${h} год ${m} хв` : `${h} год`;
 }
 
 /**
- * Toast-повідомлення (та сама функція що і в test-simulator.js).
+ * Правильна форма українського слова залежно від числа.
+ * pluralize(1, 'тест', 'тести', 'тестів') → "тест"
+ * pluralize(2, 'тест', 'тести', 'тестів') → "тести"
+ * pluralize(5, 'тест', 'тести', 'тестів') → "тестів"
+ */
+function pluralize(count, one, few, many) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
+
+/**
+ * Toast-повідомлення (та сама функція що і в інших файлах).
  */
 function showToast(message, type = 'default') {
   const container = document.getElementById('toast-container');

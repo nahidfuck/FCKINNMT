@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>НМТ Платформа — Обери тест</title>
+  <title>НМТ Платформа — Мої тести</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Geologica:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -12,52 +12,183 @@
 </head>
 <body>
 
-  <!-- ШАПКА -->
+  <!-- ================================================
+       ГЛОБАЛЬНА ШАПКА (з авторизацією)
+       ================================================ -->
   <header class="app-header">
+    <!-- Ліва частина: логотип + назва -->
     <div class="header-left">
-      <span class="header-subject-badge">БЕТА</span>
-      <span class="header-title">НМТ Платформа</span>
+      <span class="header-subject-badge">НМТ</span>
+      <span class="header-title">Платформа</span>
     </div>
+
+    <!-- Права частина: ім'я юзера + кнопка виходу -->
     <div class="header-right">
-      <span style="font-size: 0.78rem; color: var(--color-text-muted);">Open Beta</span>
+      <!-- Ім'я користувача (заповнюється JS) -->
+      <span class="user-name" id="user-name">Завантаження...</span>
+      
+      <!-- Кнопка виходу -->
+      <button class="btn-logout" id="btn-logout" title="Вийти з акаунту">
+        <span class="logout-icon">↪</span>
+        <span class="logout-text">Вийти</span>
+      </button>
     </div>
   </header>
 
-  <!-- HERO-СЕКЦІЯ -->
+  <!-- ================================================
+       HERO-СЕКЦІЯ (привітання юзера)
+       ================================================ -->
   <div class="hero-section">
-    <h1 class="hero-title">Підготовка до НМТ</h1>
+    <h1 class="hero-title">Привіт, <span id="hero-user-name">...</span>!</h1>
     <p class="hero-subtitle">
-      Пробні тести у форматі реального іспиту. Таймер, статистика, розбір помилок.
+      Обери предмет та почни підготовку до НМТ. Відстежуй свій прогрес та покращуй результати.
     </p>
-    <!-- Бета-банер -->
-    <div class="beta-banner">
+    
+    <!-- Бета-банер (показуємо тільки якщо є заблоковані тести) -->
+    <div class="beta-banner" id="beta-banner" style="display: none;">
       🧪 <strong>Відкрита бета:</strong> зараз доступні безкоштовні тести.
       Платні відкриються після офіційного релізу.
     </div>
   </div>
 
-  <!-- ОСНОВНИЙ КОНТЕНТ -->
+  <!-- ================================================
+       ОСНОВНИЙ КОНТЕНТ (групування по предметах)
+       ================================================ -->
   <main class="list-main">
 
-    <!-- Фільтри по предметах -->
-    <div class="filter-bar">
-      <button class="filter-btn active" data-filter="all">Всі предмети</button>
-      <button class="filter-btn" data-filter="math">📐 Математика</button>
-      <button class="filter-btn" data-filter="ukrainian">📖 Укр. мова</button>
-      <button class="filter-btn" data-filter="history">🏛 Історія</button>
+    <!-- Контейнер для всіх секцій предметів (заповнюється JS) -->
+    <div id="subjects-container">
+      <!-- Тут з'являться блоки кожного предмета -->
+      <!-- Поки йде завантаження — skeleton -->
     </div>
 
-    <!-- Сітка карток тестів (заповнюється JS) -->
-    <div class="tests-grid" id="tests-grid">
-      <!-- Скелетони з'являться тут під час завантаження -->
+    <!-- Стан "порожньо" (якщо в API взагалі нема тестів) -->
+    <div class="empty-state" id="empty-state" style="display: none;">
+      <div class="empty-icon">📭</div>
+      <p>Тестів поки що немає. Скоро вони з'являться!</p>
+    </div>
+
+    <!-- Стан "помилка" -->
+    <div class="error-state" id="error-state" style="display: none;">
+      <div class="error-icon">⚠️</div>
+      <p id="error-message">Не вдалося завантажити тести.</p>
+      <button class="btn btn-ghost" onclick="location.reload()">
+        ↺ Спробувати ще раз
+      </button>
     </div>
 
   </main>
 
-  <!-- TOAST-КОНТЕЙНЕР -->
+  <!-- Toast-повідомлення -->
   <div class="toast-container" id="toast-container"></div>
 
+  <!-- Скрипти: api.js → auth.js (logout) → tests-list.js -->
   <script src="js/api.js"></script>
   <script src="js/tests-list.js"></script>
+
+  <style>
+    /* Мінімальні inline-стилі тільки для нових елементів */
+    
+    /* --- Кнопка виходу --- */
+    .btn-logout {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-muted);
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    
+    .btn-logout:hover {
+      color: var(--color-danger);
+      border-color: var(--color-danger);
+      background: var(--color-danger-bg);
+    }
+    
+    .logout-icon {
+      font-size: 1rem;
+      transform: scaleX(-1); /* дзеркально відбиваємо стрілку */
+    }
+    
+    /* Ім'я юзера */
+    .user-name {
+      font-size: 0.88rem;
+      color: var(--color-text);
+      font-weight: 500;
+    }
+    
+    /* --- Заголовок секції предмета --- */
+    .subject-section {
+      margin-bottom: 2.5rem;
+    }
+    
+    .subject-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--color-border);
+    }
+    
+    .subject-icon {
+      font-size: 1.8rem;
+    }
+    
+    .subject-name {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--color-text);
+    }
+    
+    .subject-count {
+      font-size: 0.8rem;
+      color: var(--color-text-muted);
+      background: var(--color-surface-2);
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+    }
+    
+    /* Skeleton для завантаження */
+    .skeleton-subject {
+      margin-bottom: 2rem;
+    }
+    
+    .skeleton-subject-header {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .skeleton-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--color-surface-2);
+      border-radius: var(--radius-sm);
+      animation: shimmer 1.5s infinite;
+    }
+    
+    .skeleton-text {
+      width: 150px;
+      height: 20px;
+      background: var(--color-surface-2);
+      border-radius: var(--radius-sm);
+      animation: shimmer 1.5s infinite;
+    }
+    
+    @keyframes shimmer {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
 </body>
 </html>

@@ -261,3 +261,17 @@ const api = {
     }
   },
 };
+
+const USER_KEY = 'nmt_user';
+
+function getCurrentUser() {
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY));
+  } catch { return null; }
+}
+
+function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  window.location.href = 'auth.html';
+}
