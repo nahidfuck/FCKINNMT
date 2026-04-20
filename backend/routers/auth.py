@@ -105,6 +105,24 @@ def get_current_admin(
         )
     return current_user
 
+
+
+def _build_user_public(user: models.User, db: Session) -> schemas.UserPublic:
+    """Будує UserPublic з ORM-об'єкта, підвантажуючи group_name."""
+    group_name = None
+    if user.group_id:
+        group = db.query(models.Group).filter(models.Group.id == user.group_id).first()
+        group_name = group.name if group else None
+    return schemas.UserPublic(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        group_id=user.group_id,
+        group_name=group_name,
+        created_at=user.created_at,
+    )
+
 # ============================================
 # ЕНДПОІНТИ
 # ============================================
@@ -132,11 +150,13 @@ def register(payload: schemas.UserRegister, db: Session = Depends(get_db)):
         )
 
     # Створюємо юзера з хешованим паролем
+    # role береться з payload (student/teacher), default — student
+    user_role = models.UserRole.teacher if payload.role == "teacher" else models.UserRole.student
     user = models.User(
         email=payload.email.lower().strip(),
         hashed_password=hash_password(payload.password),
         full_name=payload.full_name,
-        role=models.UserRole.student,
+        role=user_role,
     )
     db.add(user)
     db.commit()
@@ -147,7 +167,7 @@ def register(payload: schemas.UserRegister, db: Session = Depends(get_db)):
 
     return schemas.TokenResponse(
         access_token=token,
-        user=user
+        user=_build_user_public(user, db)
     )
 
 
@@ -197,7 +217,7 @@ def login(
 
     return schemas.TokenResponse(
         access_token=token,
-        user=user
+        user=_build_user_public(user, db)
     )
 
 
@@ -206,12 +226,30 @@ def login(
     response_model=schemas.UserPublic,
     summary="Дані поточного авторизованого юзера"
 )
-def get_me(current_user: models.User = Depends(get_current_user)):
+def get_me(
+    current_user: models.User = Depends(get_current_user),
+    db:           Session      = Depends(get_db),
+):
     """
-    Повертає дані юзера з токена.
-    Swagger UI: натисни Authorize → введи токен → виклич цей ендпоінт.
+    Повертає дані юзера.
+    Якщо учень у групі — включає group_id та group_name.
     """
-    return current_user
+    group_name = None
+    if current_user.group_id:
+        group = db.query(models.Group).filter(
+            models.Group.id == current_user.group_id
+        ).first()
+        group_name = group.name if group else None
+
+    return schemas.UserPublic(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role,
+        group_id=current_user.group_id,
+        group_name=group_name,
+        created_at=current_user.created_at,
+    )
 
 
 # ============================================

@@ -72,7 +72,8 @@ class Group(Base):
 
     # Зв'язки
     teacher = relationship("User", foreign_keys=[teacher_id], back_populates="taught_groups")
-    members = relationship("User", foreign_keys="User.group_id", back_populates="group")
+    members        = relationship("User", foreign_keys="User.group_id", back_populates="group")
+    assigned_tests = relationship("GroupTest", back_populates="group")
 
 
 # ============================================
@@ -221,6 +222,24 @@ class SessionAnswer(Base):
     answered_at      = Column(DateTime, default=datetime.utcnow)
 
     session = relationship("TestSession", back_populates="answers")
+
+
+
+class GroupTest(Base):
+    """
+    Зв'язок "Тест задано групі" (вчитель → клас).
+    Багато-до-багатьох: одна група може мати кілька тестів,
+    один тест може бути виданий кільком групам.
+    """
+    __tablename__ = "group_tests"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    group_id   = Column(Integer, ForeignKey("groups.id"),  nullable=False)
+    test_id    = Column(Integer, ForeignKey("tests.id"),   nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    group = relationship("Group", back_populates="assigned_tests")
+    test  = relationship("Test")
 
 
 class BugReport(Base):

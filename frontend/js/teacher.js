@@ -1,13 +1,17 @@
 /**
  * teacher.js — Логіка кабінету вчителя
  * ======================================
- * Структура:
- *  1. Перевірка авторизації та ролі
- *  2. Навігація між секціями (groups / stats)
+ * ВАЖЛИВО: TOKEN_KEY, USER_KEY, getCurrentUser(), logout()
+ * визначені в api.js. Тут їх НЕ оголошуємо.
+ *
+ * Секції:
+ *  1. Ініціалізація + перевірка ролі
+ *  2. Навігація sidebar
  *  3. Секція "Мої групи": завантаження, рендер, створення
  *  4. Секція "Статистика": завантаження, рендер, пошук
  *  5. Модалка створення групи
- *  6. Утиліти
+ *  6. Модалка "Задати тест групі"
+ *  7. Утиліти
  */
 
 // ============================================
@@ -15,32 +19,27 @@
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // --- Перевірка авторизації ---
-  const token = localStorage.getItem('nmt_token');
-  if (!token) {
+  // Перевірка авторизації (TOKEN_KEY з api.js)
+  if (!localStorage.getItem(TOKEN_KEY)) {
     window.location.href = 'auth.html';
     return;
   }
 
-  // --- Перевірка ролі ---
-  // getCurrentUser() визначена в auth.js
+  // Перевірка ролі (getCurrentUser з api.js)
   const user = getCurrentUser();
   if (!user || (user.role !== 'teacher' && user.role !== 'admin')) {
-    // Студент потрапив сюди — редірект на свою сторінку
     window.location.href = 'tests.html';
     return;
   }
 
-  // --- Відображаємо ім'я ---
   const displayName = user.full_name || user.email.split('@')[0];
   document.getElementById('user-name').textContent = displayName;
 
-  // --- Підключаємо обробники ---
+  document.getElementById('btn-logout').addEventListener('click', logout); // logout з api.js
+
   setupSidebarNav();
   setupModalListeners();
-  document.getElementById('btn-logout').addEventListener('click', logout);
 
-  // --- Завантажуємо першу секцію ---
   await loadGroups();
 });
 
@@ -48,10 +47,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 // 2. НАВІГАЦІЯ SIDEBAR
 // ============================================
 
-/**
- * Перемикає активну секцію при кліку на sidebar-посилання.
- * Lazy-load: статистика завантажується тільки при першому відкритті.
- */
 let statsLoaded = false;
 
 function setupSidebarNav() {
@@ -59,17 +54,12 @@ function setupSidebarNav() {
     link.addEventListener('click', async () => {
       const sectionId = link.dataset.section;
 
-      // Оновлюємо активний клас у sidebar
-      document.querySelectorAll('.sidebar-link').forEach(l =>
-        l.classList.remove('active'));
+      document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
       link.classList.add('active');
 
-      // Показуємо відповідну секцію
-      document.querySelectorAll('.dashboard-section').forEach(s =>
-        s.classList.remove('active'));
+      document.querySelectorAll('.dashboard-section').forEach(s => s.classList.remove('active'));
       document.getElementById(`section-${sectionId}`).classList.add('active');
 
-      // Lazy-load статистики
       if (sectionId === 'stats' && !statsLoaded) {
         await loadStats();
         statsLoaded = true;
@@ -77,7 +67,6 @@ function setupSidebarNav() {
     });
   });
 
-  // Кнопка оновити в статистиці
   document.getElementById('btn-refresh-stats').addEventListener('click', async () => {
     statsLoaded = false;
     await loadStats();
@@ -112,7 +101,8 @@ async function loadGroups() {
 }
 
 /**
- * Рендерить картки груп у сітку.
+ * Рендерить картки груп.
+ * Кожна картка має: назву, invite_code, кількість учнів, кнопку "Задати тест".
  */
 function renderGroupCards(container, groups) {
   container.innerHTML = groups.map((group, i) => `
@@ -140,18 +130,27 @@ function renderGroupCards(container, groups) {
         ${formatDate(group.created_at)}
       </div>
 
+      <!-- Кнопка задати тест -->
+      <div style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--color-border);">
+        <button
+          class="btn btn-ghost"
+          style="width:100%; font-size:0.82rem; padding:7px; justify-content:center;"
+          data-group-id="${group.id}"
+          data-group-name="${escapeHtml(group.name)}"
+          onclick="openAssignModal(this.dataset.groupId, this.dataset.groupName)"
+        >
+          🎯 Задати тест
+        </button>
+      </div>
+
     </div>
   `).join('');
 
   // Обробники кнопок копіювання
-  container.querySelectorAll('.btn-copy').forEach(btn => {
-    btn.addEventListener('click', () => copyInviteCode(btn));
-  });
+  container.querySelectorAll('.btn-copy').forEach(btn =>
+    btn.addEventListener('click', () => copyInviteCode(btn)));
 }
 
-/**
- * Копіює invite_code у буфер обміну.
- */
 async function copyInviteCode(btn) {
   const code = btn.dataset.code;
   try {
@@ -163,7 +162,6 @@ async function copyInviteCode(btn) {
       btn.classList.remove('copied');
     }, 2000);
   } catch {
-    // Fallback для браузерів без clipboard API
     showToast(`Код: ${code}`, 'default');
   }
 }
@@ -182,7 +180,6 @@ function renderGroupSkeletons(container) {
 // 4. СЕКЦІЯ: СТАТИСТИКА
 // ============================================
 
-// Зберігаємо всі рядки для клієнтського пошуку
 let allStatsRows = [];
 
 async function loadStats() {
@@ -210,53 +207,37 @@ async function loadStats() {
   }
 }
 
-/**
- * Рендерить таблицю результатів.
- * @param {Array} rows — масив StudentStatRow з API
- */
 function renderStatsTable(rows) {
   const wrap = document.getElementById('stats-table-wrap');
 
   if (rows.length === 0) {
-    wrap.innerHTML = `
-      <div style="padding:2rem;text-align:center;color:var(--color-text-muted);">
-        Нічого не знайдено
-      </div>
-    `;
+    wrap.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--color-text-muted);">Нічого не знайдено</div>`;
     document.getElementById('stats-count').textContent = '';
     return;
   }
 
   const rowsHTML = rows.map(row => {
-    // Клас бейджа залежно від відсотку
-    const scoreClass = row.percentage >= 75 ? 'good'
-                     : row.percentage >= 50 ? 'medium'
-                     : 'bad';
-
+    const scoreClass = row.percentage >= 75 ? 'good' : row.percentage >= 50 ? 'medium' : 'bad';
     const scoreIcon  = row.percentage >= 75 ? '✅' : row.percentage >= 50 ? '⚠️' : '❌';
 
     return `
       <tr>
         <td>
           <div style="font-weight:500;">${escapeHtml(row.student_name)}</div>
-          <div style="font-size:0.75rem;color:var(--color-text-muted);">
-            ${escapeHtml(row.student_email)}
-          </div>
+          <div style="font-size:0.75rem;color:var(--color-text-muted);">${escapeHtml(row.student_email)}</div>
         </td>
         <td>
-          <span style="
-            font-size:0.75rem;color:var(--color-text-muted);
+          <span style="font-size:0.75rem;color:var(--color-text-muted);
             background:var(--color-surface-2);border:1px solid var(--color-border);
-            padding:2px 8px;border-radius:100px;
-          ">${escapeHtml(row.group_name)}</span>
+            padding:2px 8px;border-radius:100px;">
+            ${escapeHtml(row.group_name)}
+          </span>
         </td>
         <td>${escapeHtml(row.test_title)}</td>
         <td>
           <span class="score-badge ${scoreClass}">
             ${scoreIcon} ${row.score}/${row.max_score}
-            <span style="color:var(--color-text-muted);font-weight:400;">
-              (${row.percentage}%)
-            </span>
+            <span style="color:var(--color-text-muted);font-weight:400;">(${row.percentage}%)</span>
           </span>
         </td>
         <td style="color:var(--color-text-muted);font-size:0.82rem;white-space:nowrap;">
@@ -277,36 +258,27 @@ function renderStatsTable(rows) {
           <th>Дата</th>
         </tr>
       </thead>
-      <tbody id="stats-tbody">
-        ${rowsHTML}
-      </tbody>
+      <tbody id="stats-tbody">${rowsHTML}</tbody>
     </table>
   `;
 
   updateStatsCount(rows.length, allStatsRows.length);
 }
 
-/**
- * Клієнтський пошук у таблиці статистики.
- */
 function setupStatsSearch() {
   const input = document.getElementById('stats-search');
+  // Скидаємо старий listener (на випадок повторного виклику)
+  const newInput = input.cloneNode(true);
+  input.parentNode.replaceChild(newInput, input);
 
-  input.addEventListener('input', () => {
-    const query = input.value.trim().toLowerCase();
-
-    if (!query) {
-      renderStatsTable(allStatsRows);
-      return;
-    }
-
-    const filtered = allStatsRows.filter(row =>
-      row.student_name.toLowerCase().includes(query)  ||
-      row.student_email.toLowerCase().includes(query) ||
-      row.test_title.toLowerCase().includes(query)    ||
-      row.group_name.toLowerCase().includes(query)
+  newInput.addEventListener('input', () => {
+    const q = newInput.value.trim().toLowerCase();
+    const filtered = !q ? allStatsRows : allStatsRows.filter(row =>
+      row.student_name.toLowerCase().includes(q)  ||
+      row.student_email.toLowerCase().includes(q) ||
+      row.test_title.toLowerCase().includes(q)    ||
+      row.group_name.toLowerCase().includes(q)
     );
-
     renderStatsTable(filtered);
   });
 }
@@ -319,27 +291,27 @@ function updateStatsCount(shown, total) {
 }
 
 // ============================================
-// 5. МОДАЛКА СТВОРЕННЯ ГРУПИ
+// 5. МОДАЛКА: СТВОРЕННЯ ГРУПИ
 // ============================================
 
 function setupModalListeners() {
-  // Відкриття
+  // --- Відкриття модалки ---
   document.getElementById('btn-open-create-group').addEventListener('click', () => {
     document.getElementById('input-group-name').value = '';
     openModal('modal-create-group');
-    // Фокус на поле після анімації
     setTimeout(() => document.getElementById('input-group-name').focus(), 150);
   });
 
-  // Submit по Enter
   document.getElementById('input-group-name').addEventListener('keydown', e => {
     if (e.key === 'Enter') handleCreateGroup();
   });
 
-  // Кнопка "Створити"
   document.getElementById('btn-create-group').addEventListener('click', handleCreateGroup);
 
-  // Закриття модалок
+  // --- Підтвердження задати тест ---
+  document.getElementById('btn-confirm-assign').addEventListener('click', handleAssignTest);
+
+  // --- Закриття всіх модалок ---
   document.querySelectorAll('.modal-close, .modal-overlay').forEach(el =>
     el.addEventListener('click', e => { if (e.target === el) closeModals(); }));
 
@@ -355,28 +327,116 @@ async function handleCreateGroup() {
   if (!name) {
     nameInput.focus();
     nameInput.style.borderColor = 'var(--color-danger)';
-    setTimeout(() => nameInput.style.borderColor = '', 1500);
+    setTimeout(() => { nameInput.style.borderColor = ''; }, 1500);
     return;
   }
 
-  const btn      = document.getElementById('btn-create-group');
-  const btnText  = btn.querySelector('.btn-text');
-  const spinner  = btn.querySelector('.spinner');
+  const btn     = document.getElementById('btn-create-group');
+  const btnText = btn.querySelector('.btn-text');
+  const spinner = btn.querySelector('.spinner');
 
-  // Показуємо spinner
-  btn.disabled         = true;
+  btn.disabled          = true;
   btnText.style.display = 'none';
   spinner.style.display = 'inline-block';
   spinner.classList.add('spinning');
 
   try {
     const newGroup = await api.createGroup(name);
+    closeModals();
+    showToast(`✅ Групу «${newGroup.name}» створено! Код: ${newGroup.invite_code}`, 'success');
+    await loadGroups();
+  } catch (err) {
+    showToast(`❌ ${err.message}`, 'error');
+  } finally {
+    btn.disabled          = false;
+    btnText.style.display = '';
+    spinner.style.display = 'none';
+    spinner.classList.remove('spinning');
+  }
+}
+
+// ============================================
+// 6. МОДАЛКА: ЗАДАТИ ТЕСТ ГРУПІ
+// ============================================
+
+// Зберігаємо ID групи для якої відкрита модалка
+let assignTargetGroupId = null;
+
+/**
+ * Відкриває модалку задати тест.
+ * Викликається через onclick="openAssignModal(...)" на картці групи.
+ * @param {string|number} groupId
+ * @param {string} groupName
+ */
+async function openAssignModal(groupId, groupName) {
+  assignTargetGroupId = parseInt(groupId, 10);
+
+  // Показуємо назву групи в модалці
+  document.getElementById('assign-group-name').textContent = groupName;
+
+  // Завантажуємо список тестів у select
+  const select = document.getElementById('assign-test-select');
+  select.innerHTML = '<option value="">Завантаження тестів...</option>';
+  select.disabled  = true;
+
+  openModal('modal-assign-test');
+
+  try {
+    const tests = await api.getTests();
+    const available = tests.filter(t => !t.is_locked);
+
+    if (available.length === 0) {
+      select.innerHTML = '<option value="">Немає доступних тестів</option>';
+      return;
+    }
+
+    select.innerHTML =
+      '<option value="">— Оберіть тест —</option>' +
+      available.map(t =>
+        `<option value="${t.id}">${t.subject.name} — ${escapeHtml(t.title)}</option>`
+      ).join('');
+
+    select.disabled = false;
+  } catch (err) {
+    select.innerHTML = '<option value="">Помилка завантаження</option>';
+    showToast(`❌ ${err.message}`, 'error');
+  }
+}
+
+/**
+ * Відправляє запит на призначення тесту групі.
+ */
+async function handleAssignTest() {
+  const select = document.getElementById('assign-test-select');
+  const testId = parseInt(select.value, 10);
+
+  if (!testId) {
+    select.style.borderColor = 'var(--color-danger)';
+    setTimeout(() => { select.style.borderColor = ''; }, 1500);
+    return;
+  }
+
+  if (!assignTargetGroupId) return;
+
+  const btn     = document.getElementById('btn-confirm-assign');
+  const btnText = btn.querySelector('.btn-text');
+  const spinner = btn.querySelector('.spinner');
+
+  btn.disabled          = true;
+  btnText.style.display = 'none';
+  spinner.style.display = 'inline-block';
+  spinner.classList.add('spinning');
+
+  try {
+    const result = await api.assignTestToGroup(assignTargetGroupId, testId);
 
     closeModals();
-    showToast(`✅ Групу "${newGroup.name}" створено! Код: ${newGroup.invite_code}`, 'success');
+    assignTargetGroupId = null;
 
-    // Перезавантажуємо список груп
-    await loadGroups();
+    const msg = result.already_assigned
+      ? '⚠ Цей тест вже був задано цій групі'
+      : `✅ ${result.message}`;
+    showToast(msg, result.already_assigned ? 'default' : 'success');
 
   } catch (err) {
     showToast(`❌ ${err.message}`, 'error');
@@ -389,7 +449,7 @@ async function handleCreateGroup() {
 }
 
 // ============================================
-// 6. УТИЛІТИ
+// 7. УТИЛІТИ
 // ============================================
 
 function openModal(id) {
@@ -412,38 +472,27 @@ function showToast(message, type = 'default') {
   setTimeout(() => toast.remove(), 3500);
 }
 
-/** Правильна українська форма слова */
 function pluralize(count, one, few, many) {
-  const m10  = count % 10;
-  const m100 = count % 100;
+  const m10 = count % 10, m100 = count % 100;
   if (m100 >= 11 && m100 <= 14) return many;
   if (m10 === 1)                 return one;
   if (m10 >= 2 && m10 <= 4)     return few;
   return many;
 }
 
-/** Форматує ISO дату у "15 лют 2025, 14:30" */
 function formatDate(isoString) {
   if (!isoString) return '—';
   try {
     return new Date(isoString).toLocaleString('uk-UA', {
-      day:    'numeric',
-      month:  'short',
-      year:   'numeric',
-      hour:   '2-digit',
-      minute: '2-digit',
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
     });
-  } catch {
-    return isoString;
-  }
+  } catch { return isoString; }
 }
 
-/** Екранує HTML-символи щоб уникнути XSS */
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

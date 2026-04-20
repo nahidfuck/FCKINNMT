@@ -1,36 +1,19 @@
 /**
  * auth.js — Логіка сторінки авторизації
  * =======================================
- * Відповідає за:
- * 1. Перемикання між вкладками Вхід / Реєстрація
- * 2. Клієнтська валідація форм (до запиту на сервер)
- * 3. Запити до API (через api.js)
- * 4. Збереження токена і redirect після успіху
+ * ВАЖЛИВО: TOKEN_KEY, USER_KEY, getCurrentUser(), logout()
+ * оголошені в api.js і доступні глобально.
+ * Цей файл їх НЕ оголошує — тільки використовує.
  */
-
-// ============================================
-// КОНСТАНТИ
-// ============================================
-
-// Куди redirect після успішного входу
-const REDIRECT_AFTER_LOGIN = 'tests.html';
 
 // ============================================
 // ІНІЦІАЛІЗАЦІЯ
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Якщо юзер вже авторизований — редірект залежно від ролі
+  // Якщо вже авторизований — редірект залежно від ролі
   if (localStorage.getItem(TOKEN_KEY)) {
-    try {
-      const user = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
-      const role = user?.role;
-      window.location.href = (role === 'teacher' || role === 'admin')
-        ? 'teacher-dashboard.html'
-        : 'tests.html';
-    } catch {
-      window.location.href = 'tests.html';
-    }
+    redirectByRole(getCurrentUser()?.role);
     return;
   }
 
@@ -43,27 +26,15 @@ document.addEventListener('DOMContentLoaded', () => {
 // ============================================
 
 function setupTabs() {
-  document.querySelectorAll('.auth-tab').forEach(tab => {
-    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
-  });
+  document.querySelectorAll('.auth-tab').forEach(tab =>
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
 }
 
-/**
- * Перемикає активну вкладку.
- * @param {'login'|'register'} tabName
- */
 function switchTab(tabName) {
-  // Оновлюємо кнопки вкладок
-  document.querySelectorAll('.auth-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.tab === tabName);
-  });
-
-  // Показуємо відповідну панель
-  document.querySelectorAll('.auth-panel').forEach(p => {
-    p.classList.toggle('active', p.id === `panel-${tabName}`);
-  });
-
-  // Скидаємо помилки при переключенні
+  document.querySelectorAll('.auth-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === tabName));
+  document.querySelectorAll('.auth-panel').forEach(p =>
+    p.classList.toggle('active', p.id === `panel-${tabName}`));
   clearErrors();
 }
 
@@ -75,96 +46,69 @@ function setupForms() {
   document.getElementById('btn-login').addEventListener('click', handleLogin);
   document.getElementById('btn-register').addEventListener('click', handleRegister);
 
-  // Submit по Enter в полях
-  ['login-email', 'login-password'].forEach(id => {
+  ['login-email', 'login-password'].forEach(id =>
     document.getElementById(id).addEventListener('keydown', e => {
       if (e.key === 'Enter') handleLogin();
-    });
-  });
+    }));
 
-  ['reg-email', 'reg-password', 'reg-name'].forEach(id => {
+  ['reg-name', 'reg-email', 'reg-password'].forEach(id =>
     document.getElementById(id).addEventListener('keydown', e => {
       if (e.key === 'Enter') handleRegister();
-    });
-  });
+    }));
 }
 
-/**
- * Обробляє форму входу.
- */
 async function handleLogin() {
   clearErrors();
-
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
 
-  // Клієнтська валідація
-  let isValid = true;
-  if (!isValidEmail(email)) {
-    showFieldError('login-email', 'Введіть коректний email');
-    isValid = false;
-  }
-  if (password.length < 1) {
-    showFieldError('login-password', 'Введіть пароль');
-    isValid = false;
-  }
-  if (!isValid) return;
+  let valid = true;
+  if (!isValidEmail(email))  { showFieldError('login-email',    'Введіть коректний email'); valid = false; }
+  if (!password.length)      { showFieldError('login-password', 'Введіть пароль');          valid = false; }
+  if (!valid) return;
 
   const btn = document.getElementById('btn-login');
-  setButtonLoading(btn, true);
-
+  setLoading(btn, true);
   try {
-    // /api/auth/token приймає form-data (OAuth2), не JSON
-    // Тому використовуємо окремий метод api.login
     const result = await api.login(email, password);
     onAuthSuccess(result);
-
   } catch (err) {
-    const message = err instanceof ApiError
-      ? err.message
-      : 'Помилка підключення до сервера';
-    showBanner(message);
+    showBanner(err instanceof ApiError ? err.message : 'Помилка підключення до сервера');
   } finally {
-    setButtonLoading(btn, false);
+    setLoading(btn, false);
   }
 }
 
-/**
- * Обробляє форму реєстрації.
- */
 async function handleRegister() {
   clearErrors();
-
   const name     = document.getElementById('reg-name').value.trim();
   const email    = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value;
 
-  // Клієнтська валідація
-  let isValid = true;
-  if (!isValidEmail(email)) {
-    showFieldError('reg-email', 'Введіть коректний email');
-    isValid = false;
-  }
-  if (password.length < 8) {
-    showFieldError('reg-password', 'Пароль має містити мінімум 8 символів');
-    isValid = false;
-  }
-  if (!isValid) return;
+  // Зчитуємо вибрану роль з radio-кнопок
+  const roleEl   = document.querySelector('input[name="reg-role"]:checked');
+  const role     = roleEl ? roleEl.value : 'student';
+
+  let valid = true;
+  if (!isValidEmail(email))    { showFieldError('reg-email',    'Введіть коректний email');           valid = false; }
+  if (password.length < 8)     { showFieldError('reg-password', 'Пароль має містити мінімум 8 символів'); valid = false; }
+  if (!valid) return;
 
   const btn = document.getElementById('btn-register');
-  setButtonLoading(btn, true);
-
+  setLoading(btn, true);
   try {
-    const result = await api.register({ email, password, full_name: name || null });
+    // Передаємо role в api.register
+    const result = await api.register({
+      email,
+      password,
+      full_name: name || null,
+      role,               // 'student' або 'teacher'
+    });
     onAuthSuccess(result);
-
   } catch (err) {
-    const message = err instanceof ApiError
-      ? err.message
-      : 'Помилка підключення до сервера';
-    showBanner(message);
+    showBanner(err instanceof ApiError ? err.message : 'Помилка підключення до сервера');
   } finally {
-    setButtonLoading(btn, false);
+    setLoading(btn, false);
   }
 }
 
@@ -172,28 +116,23 @@ async function handleRegister() {
 // ПІСЛЯ УСПІШНОЇ АВТОРИЗАЦІЇ
 // ============================================
 
-/**
- * Зберігає токен і дані юзера, робить redirect.
- * @param {{ access_token: string, user: object }} result
- */
 function onAuthSuccess(result) {
-  // Зберігаємо токен — api.js підхопить його автоматично
   localStorage.setItem(TOKEN_KEY, result.access_token);
-
-  // Зберігаємо дані юзера для відображення в UI (ім'я, роль)
   localStorage.setItem(USER_KEY, JSON.stringify(result.user));
 
   showToast(`👋 Вітаємо, ${result.user.full_name || result.user.email}!`, 'success');
 
-  // Редірект залежно від ролі
-  const role = result.user.role;
-  const redirectTo = role === 'teacher' || role === 'admin'
+  setTimeout(() => redirectByRole(result.user.role), 800);
+}
+
+/**
+ * Редірект залежно від ролі юзера.
+ * Єдине місце де визначається куди йде student/teacher.
+ */
+function redirectByRole(role) {
+  window.location.href = (role === 'teacher' || role === 'admin')
     ? 'teacher-dashboard.html'
     : 'tests.html';
-
-  setTimeout(() => {
-    window.location.href = redirectTo;
-  }, 800);
 }
 
 // ============================================
@@ -202,17 +141,14 @@ function onAuthSuccess(result) {
 
 function showFieldError(fieldId, message) {
   document.getElementById(fieldId)?.classList.add('error');
-  const errEl = document.getElementById(`${fieldId}-error`);
-  if (errEl) {
-    errEl.textContent = message;
-    errEl.classList.add('visible');
-  }
+  const el = document.getElementById(`${fieldId}-error`);
+  if (el) { el.textContent = message; el.classList.add('visible'); }
 }
 
 function showBanner(message) {
-  const banner = document.getElementById('auth-error');
-  banner.textContent = message;
-  banner.classList.add('visible');
+  const el = document.getElementById('auth-error');
+  el.textContent = message;
+  el.classList.add('visible');
 }
 
 function clearErrors() {
@@ -221,10 +157,10 @@ function clearErrors() {
     el.textContent = '';
     el.classList.remove('visible');
   });
-  document.getElementById('auth-error').classList.remove('visible');
+  document.getElementById('auth-error')?.classList.remove('visible');
 }
 
-function setButtonLoading(btn, loading) {
+function setLoading(btn, loading) {
   btn.disabled = loading;
   btn.classList.toggle('loading', loading);
 }
@@ -241,4 +177,3 @@ function showToast(message, type = 'default') {
   container.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
-

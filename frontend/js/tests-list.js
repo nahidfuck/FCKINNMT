@@ -1,13 +1,16 @@
 /**
- * tests-list.js — Логіка головного дашборду
+ * tests-list.js — Головний дашборд студента
  * ===========================================
- * Ключові функції:
- * 1. Перевірка авторизації при завантаженні
- * 2. Відображення імені юзера в шапці
- * 3. Завантаження тестів з API
- * 4. Групування тестів за предметами
- * 5. Обробка is_locked (бета-лок)
- * 6. Старт сесії та редірект на симулятор
+ * ВАЖЛИВО: TOKEN_KEY, USER_KEY, getCurrentUser(), logout()
+ * визначені в api.js. Тут їх НЕ оголошуємо.
+ *
+ * Потік:
+ *  1. Перевірка авторизації
+ *  2. Відображення імені юзера
+ *  3. Паралельне завантаження: getTests() + getMyGroup()
+ *  4. Рендер блоку групи (join / in-group)
+ *  5. Рендер секції "Задані тести" (якщо є)
+ *  6. Рендер всіх тестів, згрупованих по предметах
  */
 
 // ============================================
@@ -15,391 +18,354 @@
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // КРОК 1: Перевірка авторизації
-  // Якщо токена нема — редірект на auth.html
-  if (!checkAuth()) {
-    return; // Зупиняємо виконання, redirect вже відбувся
-  }
-
-  // КРОК 2: Відображення імені юзера в шапці
-  displayUserInfo();
-
-  // КРОК 3: Підключення обробників
-  setupEventListeners();
-
-  // КРОК 4: Завантаження та рендер тестів
-  await loadAndRenderTests();
-});
-
-// ============================================
-// АВТОРИЗАЦІЯ
-// ============================================
-
-/**
- * Перевіряє чи користувач авторизований.
- * Якщо ні — робить редірект на auth.html.
- * @returns {boolean} true якщо авторизований, false якщо ні (після redirect)
- */
-function checkAuth() {
-  const token = localStorage.getItem(TOKEN_KEY);
-  
-  if (!token) {
-    // Токена нема → не авторизований → на сторінку логіну
+  // Перевірка авторизації — без TOKEN_KEY тут
+  if (!localStorage.getItem(TOKEN_KEY)) {
     window.location.href = 'auth.html';
-    return false;
-  }
-
-  // Токен є → все ОК, продовжуємо
-  return true;
-}
-
-/**
- * Відображає ім'я юзера в шапці та hero-секції.
- * Використовує getCurrentUser() з auth.js.
- */
-function displayUserInfo() {
-  // getCurrentUser() визначена в auth.js і читає дані з localStorage
-  const user = getCurrentUser();
-
-  if (!user) {
-    // Якщо дані юзера нема (токен є, але user_key якось відсутній)
-    // — показуємо тільки email або "Користувач"
-    document.getElementById('user-name').textContent = 'Користувач';
-    document.getElementById('hero-user-name').textContent = 'користувач';
     return;
   }
 
-  // Визначаємо що показувати: ім'я або email
-  const displayName = user.full_name || user.email.split('@')[0]; // "ivan" з "ivan@gmail.com"
+  displayUserInfo();
+  setupEventListeners();
 
-  // Оновлюємо обидва місця
-  document.getElementById('user-name').textContent = displayName;
-  document.getElementById('hero-user-name').textContent = displayName;
+  // Паралельне завантаження для швидкості
+  await Promise.all([
+    loadGroupStatus(),
+    loadAndRenderTests(),
+  ]);
+});
+
+// ============================================
+// ВІДОБРАЖЕННЯ ЮЗЕРА
+// ============================================
+
+function displayUserInfo() {
+  const user = getCurrentUser(); // з api.js
+  if (!user) return;
+
+  const name = user.full_name || user.email.split('@')[0];
+  document.getElementById('user-name').textContent    = name;
+  document.getElementById('hero-user-name').textContent = name;
 }
-
-// ============================================
-// ОБРОБНИКИ ПОДІЙ
-// ============================================
 
 function setupEventListeners() {
-  // Кнопка "Вийти" викликає logout() з auth.js
-  document.getElementById('btn-logout').addEventListener('click', () => {
-    logout(); // функція з auth.js: очищає токен + редірект на auth.html
-  });
+  document.getElementById('btn-logout').addEventListener('click', logout); // з api.js
 }
 
 // ============================================
-// ЗАВАНТАЖЕННЯ ТА РЕНДЕР ТЕСТІВ
+// БЛОК ГРУПИ
 // ============================================
 
 /**
- * Головна функція: завантажує тести з API та рендерить їх,
- * групуючи за предметами.
+ * Завантажує статус групи і рендерить відповідний блок.
+ * Також завантажує задані тести якщо студент в групі.
  */
+async function loadGroupStatus() {
+  const user = getCurrentUser();
+
+  // Якщо user.group_id є в кеші — не робимо зайвий запит
+  if (user?.group_id) {
+    try {
+      const myGroup = await api.getMyGroup();
+      renderInGroupBlock(myGroup);
+      renderAssignedTests(myGroup.assigned_tests);
+    } catch {
+      // Якщо щось пішло не так — показуємо join-форму
+      renderJoinGroupBlock();
+    }
+  } else {
+    renderJoinGroupBlock();
+  }
+}
+
+/**
+ * Рендерить блок "Ви в групі: [Назва]".
+ */
+function renderInGroupBlock(myGroup) {
+  const block = document.getElementById('group-block');
+  block.innerHTML = `
+    <div class="group-status-block in-group">
+      <span style="font-size:1.25rem;">✅</span>
+      <span class="group-status-text">
+        Ви у групі: <strong>${escapeHtml(myGroup.group_name)}</strong>
+      </span>
+    </div>
+  `;
+}
+
+/**
+ * Рендерить блок з формою приєднання до групи.
+ */
+function renderJoinGroupBlock() {
+  const block = document.getElementById('group-block');
+  block.innerHTML = `
+    <div class="group-status-block">
+      <span style="font-size:1.25rem;">🏫</span>
+      <span class="group-status-text">Приєднайтесь до групи вчителя:</span>
+      <div class="join-group-form">
+        <input
+          class="join-code-input"
+          id="join-code-input"
+          type="text"
+          maxlength="10"
+          placeholder="Код групи"
+        >
+        <button class="btn btn-primary" id="btn-join-group"
+          style="padding:7px 16px; font-size:0.85rem;">
+          Приєднатись
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btn-join-group').addEventListener('click', handleJoinGroup);
+  document.getElementById('join-code-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleJoinGroup();
+  });
+}
+
+/**
+ * Обробляє клік "Приєднатись до групи".
+ */
+async function handleJoinGroup() {
+  const input = document.getElementById('join-code-input');
+  const code  = input?.value.trim().toUpperCase();
+
+  if (!code || code.length < 4) {
+    input?.focus();
+    showToast('⚠ Введіть код групи', 'default');
+    return;
+  }
+
+  const btn = document.getElementById('btn-join-group');
+  btn.textContent = 'Приєднання...';
+  btn.disabled    = true;
+
+  try {
+    const result = await api.joinGroup(code);
+
+    showToast(`✅ ${result.message}`, 'success');
+
+    // Оновлюємо кеш юзера з новим group_id (не знаємо ID — перезавантажуємо)
+    try {
+      const freshUser = await api.getMe();
+      localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+    } catch { /* не критично */ }
+
+    // Перезавантажуємо блок групи
+    await loadGroupStatus();
+
+  } catch (err) {
+    btn.textContent = 'Приєднатись';
+    btn.disabled    = false;
+    showToast(`❌ ${err.message}`, 'error');
+  }
+}
+
+// ============================================
+// ЗАДАНІ ТЕСТИ
+// ============================================
+
+/**
+ * Рендерить секцію "Задані вчителем тести" вгорі сторінки.
+ * @param {Array} assignedTests — масив AssignedTestItem
+ */
+function renderAssignedTests(assignedTests) {
+  const section = document.getElementById('assigned-tests-section');
+  const grid    = document.getElementById('assigned-tests-grid');
+
+  if (!assignedTests || assignedTests.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  grid.innerHTML = assignedTests.map(test => buildTestCardHTML({
+    ...test,
+    is_locked:      false,
+    is_premium:     false,
+    description:    '',
+    question_count: test.question_count,
+  })).join('');
+
+  // Обробники кліків
+  grid.querySelectorAll('.test-card-btn').forEach(btn =>
+    btn.addEventListener('click', () =>
+      handleStartTest(parseInt(btn.dataset.testId, 10))));
+}
+
+// ============================================
+// ЗАВАНТАЖЕННЯ ТА РЕНДЕР ВСІХ ТЕСТІВ
+// ============================================
+
 async function loadAndRenderTests() {
   const container = document.getElementById('subjects-container');
-
-  // Показуємо skeleton поки йде завантаження
   renderSkeletons(container);
 
   try {
-    // Запит до API (без фільтру по предмету — отримуємо всі тести)
     const tests = await api.getTests();
 
-    // Перевіряємо чи є тести взагалі
     if (!tests || tests.length === 0) {
-      showEmptyState();
+      container.innerHTML = '';
+      document.getElementById('empty-state').style.display = 'flex';
       return;
     }
 
-    // Групуємо тести за предметами
-    const groupedBySubject = groupTestsBySubject(tests);
+    const hasLocked = tests.some(t => t.is_locked);
+    if (hasLocked) document.getElementById('beta-banner').style.display = 'inline-flex';
 
-    // Рендеримо кожен предмет окремою секцією
-    renderSubjectSections(container, groupedBySubject);
-
-    // Перевіряємо чи є хоча б один is_locked тест
-    // Якщо так — показуємо бета-банер
-    const hasLockedTests = tests.some(test => test.is_locked);
-    if (hasLockedTests) {
-      document.getElementById('beta-banner').style.display = 'inline-flex';
-    }
+    renderSubjectSections(container, groupTestsBySubject(tests));
 
   } catch (err) {
-    // Обробляємо помилку (мережева або від API)
     showErrorState(err);
   }
 }
 
-/**
- * Групує тести за предметами.
- * Повертає об'єкт виду: { "Математика": [test1, test2], "Укр. мова": [test3] }
- */
 function groupTestsBySubject(tests) {
-  const grouped = {};
-
-  tests.forEach(test => {
-    const subjectName = test.subject.name;
-
-    if (!grouped[subjectName]) {
-      // Якщо це перший тест з цього предмета — створюємо масив
-      grouped[subjectName] = {
-        subject: test.subject,  // зберігаємо повний об'єкт subject (з icon, slug)
-        tests: []
-      };
-    }
-
-    // Додаємо тест до відповідного предмета
-    grouped[subjectName].tests.push(test);
-  });
-
-  return grouped;
+  return tests.reduce((acc, test) => {
+    const key = test.subject.name;
+    if (!acc[key]) acc[key] = { subject: test.subject, tests: [] };
+    acc[key].tests.push(test);
+    return acc;
+  }, {});
 }
 
-/**
- * Рендерить секції предметів з тестами.
- */
-function renderSubjectSections(container, groupedBySubject) {
-  container.innerHTML = ''; // Очищаємо skeleton
+function renderSubjectSections(container, grouped) {
+  container.innerHTML = '';
 
-  // Перебираємо кожен предмет
-  Object.keys(groupedBySubject).forEach(subjectName => {
-    const { subject, tests } = groupedBySubject[subjectName];
-
-    // Створюємо секцію для цього предмета
+  Object.values(grouped).forEach(({ subject, tests }) => {
     const section = document.createElement('div');
     section.className = 'subject-section';
     section.innerHTML = `
-      <!-- Заголовок предмета -->
       <div class="subject-header">
         <span class="subject-icon">${subject.icon || '📚'}</span>
-        <span class="subject-name">${subjectName}</span>
+        <span class="subject-name">${subject.name}</span>
         <span class="subject-count">${tests.length} ${pluralize(tests.length, 'тест', 'тести', 'тестів')}</span>
       </div>
-
-      <!-- Сітка тестів для цього предмета -->
       <div class="tests-grid" id="grid-${subject.slug}"></div>
     `;
-
     container.appendChild(section);
 
-    // Рендеримо картки тестів всередині цієї сітки
     const grid = document.getElementById(`grid-${subject.slug}`);
-    tests.forEach(test => {
-      const card = buildTestCard(test);
-      grid.appendChild(card);
-    });
+    grid.innerHTML = tests.map(t => buildTestCardHTML(t)).join('');
+
+    grid.querySelectorAll('.test-card-btn:not([disabled])').forEach(btn =>
+      btn.addEventListener('click', () =>
+        handleStartTest(parseInt(btn.dataset.testId, 10))));
   });
 }
 
 /**
- * Будує DOM-елемент картки одного тесту.
- * @param {object} test — об'єкт тесту з API
- * @returns {HTMLElement}
+ * Будує HTML картки тесту.
+ * Використовується і для звичайних тестів, і для "Заданих".
  */
-function buildTestCard(test) {
-  const card = document.createElement('div');
-  card.className = `test-card ${test.is_locked ? 'test-card--locked' : ''}`;
-
-  // Формуємо текст тривалості
-  const durationText = formatDuration(test.duration);
-
-  // Бейдж доступу (Безкоштовно / Преміум)
+function buildTestCardHTML(test) {
+  const duration    = formatDuration(test.duration);
   const accessBadge = test.is_premium
     ? '<span class="badge badge-premium">⭐ Преміум</span>'
     : '<span class="badge badge-free">✓ Безкоштовно</span>';
 
-  // Кнопка залежить від is_locked
-  let buttonHTML;
-  if (test.is_locked) {
-    // Заблокований тест — неклікабельна кнопка з замком
-    buttonHTML = `
-      <button class="btn-locked" disabled>
-        🔒 Відкриється після релізу
-      </button>
-    `;
-  } else {
-    // Доступний тест — кнопка "Почати"
-    buttonHTML = `
-      <button class="btn-start" data-test-id="${test.id}">
-        Почати тест →
-      </button>
-    `;
-  }
+  const buttonHTML = test.is_locked
+    ? `<button class="btn-locked test-card-btn" disabled data-test-id="${test.id}">🔒 Відкриється після релізу</button>`
+    : `<button class="btn-start test-card-btn" data-test-id="${test.id}">Почати тест →</button>`;
 
-  card.innerHTML = `
-    <div class="test-card-header">
-      <span class="test-subject-badge">${test.subject.icon || '📝'} ${test.subject.name}</span>
-      ${accessBadge}
-    </div>
-
-    <h2 class="test-card-title">${test.title}</h2>
-
-    ${test.description
-      ? `<p class="test-card-desc">${test.description}</p>`
-      : '<p class="test-card-desc" style="opacity: 0.5;">Пробний тест для підготовки</p>'}
-
-    <div class="test-card-meta">
-      <span class="meta-item">⏱ ${durationText}</span>
-      <span class="meta-item">📋 ${test.question_count} ${pluralize(test.question_count, 'питання', 'питання', 'питань')}</span>
-    </div>
-
-    <div class="test-card-footer">
-      ${buttonHTML}
+  return `
+    <div class="test-card ${test.is_locked ? 'test-card--locked' : ''}">
+      <div class="test-card-header">
+        <span class="test-subject-badge">
+          ${test.subject?.icon || '📝'} ${test.subject?.name || ''}
+        </span>
+        ${accessBadge}
+      </div>
+      <h2 class="test-card-title">${escapeHtml(test.title)}</h2>
+      ${test.description
+        ? `<p class="test-card-desc">${escapeHtml(test.description)}</p>`
+        : ''}
+      <div class="test-card-meta">
+        <span class="meta-item">⏱ ${duration}</span>
+        <span class="meta-item">📋 ${test.question_count} ${pluralize(test.question_count, 'питання', 'питання', 'питань')}</span>
+      </div>
+      <div class="test-card-footer">${buttonHTML}</div>
     </div>
   `;
-
-  // Якщо тест НЕ заблокований — додаємо обробник кліку на кнопку
-  if (!test.is_locked) {
-    const btn = card.querySelector('.btn-start');
-    btn.addEventListener('click', () => handleStartTest(test.id));
-  }
-
-  // Легка анімація появи картки
-  card.style.animation = 'fade-in 0.3s ease both';
-
-  return card;
 }
 
-/**
- * Обробляє клік на кнопку "Почати тест".
- * Створює сесію на сервері та робить редірект на симулятор.
- */
+// ============================================
+// СТАРТ ТЕСТУ
+// ============================================
+
 async function handleStartTest(testId) {
-  // Знаходимо кнопку для візуального feedback
   const btn = document.querySelector(`[data-test-id="${testId}"]`);
-  if (!btn) return;
+  if (!btn || btn.disabled) return;
 
   const originalText = btn.textContent;
   btn.textContent = 'Завантаження...';
-  btn.disabled = true;
+  btn.disabled    = true;
 
   try {
-    // КРОК 1: Створюємо сесію на сервері
-    // api.createSession повертає { id, session_token, test_id, ... }
     const session = await api.createSession(testId);
-
-    // КРОК 2: Зберігаємо токен сесії та ID тесту в localStorage
-    // test-simulator.js використає ці дані при завантаженні
     localStorage.setItem('active_session_token', session.session_token);
     localStorage.setItem('active_test_id', String(testId));
-
-    // КРОК 3: Redirect на сторінку симулятора з токеном в URL
     window.location.href = `test.html?session=${session.session_token}`;
-
   } catch (err) {
-    // Відновлюємо кнопку якщо сталася помилка
     btn.textContent = originalText;
-    btn.disabled = false;
-
-    // Показуємо помилку користувачу
-    const message = err instanceof ApiError
-      ? err.message
-      : 'Не вдалося розпочати тест. Перевірте підключення.';
-    
-    showToast(`❌ ${message}`, 'error');
-    console.error('Помилка створення сесії:', err);
+    btn.disabled    = false;
+    showToast(`❌ ${err instanceof ApiError ? err.message : 'Помилка старту тесту'}`, 'error');
   }
 }
 
 // ============================================
-// СТАНИ UI (завантаження / помилка / порожньо)
+// СТАНИ UI
 // ============================================
 
-/**
- * Показує skeleton поки тести завантажуються.
- */
 function renderSkeletons(container) {
-  container.innerHTML = `
-    <!-- Skeleton для 2 предметів -->
+  container.innerHTML = Array(2).fill(`
     <div class="skeleton-subject">
       <div class="skeleton-subject-header">
         <div class="skeleton-icon"></div>
         <div class="skeleton-text"></div>
       </div>
       <div class="tests-grid">
-        ${Array(3).fill('<div class="test-card skeleton"></div>').join('')}
+        ${Array(3).fill('<div class="test-card skeleton" style="height:160px;"></div>').join('')}
       </div>
     </div>
-    <div class="skeleton-subject">
-      <div class="skeleton-subject-header">
-        <div class="skeleton-icon"></div>
-        <div class="skeleton-text"></div>
-      </div>
-      <div class="tests-grid">
-        ${Array(2).fill('<div class="test-card skeleton"></div>').join('')}
-      </div>
-    </div>
-  `;
+  `).join('');
 }
 
-/**
- * Показує стан "порожньо" якщо тестів нема взагалі.
- */
-function showEmptyState() {
-  document.getElementById('subjects-container').style.display = 'none';
-  document.getElementById('empty-state').style.display = 'flex';
-}
-
-/**
- * Показує стан "помилка" при невдалому завантаженні.
- */
 function showErrorState(err) {
   document.getElementById('subjects-container').style.display = 'none';
-
-  const errorStateEl = document.getElementById('error-state');
-  const errorMessageEl = document.getElementById('error-message');
-
-  // Визначаємо текст помилки
-  if (err instanceof ApiError && err.status === 0) {
-    errorMessageEl.textContent = 'Не вдалося підключитися до сервера. Перевірте з\'єднання.';
-  } else if (err instanceof ApiError) {
-    errorMessageEl.textContent = `Помилка: ${err.message}`;
-  } else {
-    errorMessageEl.textContent = 'Не вдалося завантажити тести. Спробуйте пізніше.';
-  }
-
-  errorStateEl.style.display = 'flex';
-
-  console.error('Помилка завантаження тестів:', err);
+  const msg = err instanceof ApiError && err.status === 0
+    ? 'Не вдалося підключитися до сервера.'
+    : `Помилка: ${err?.message || 'невідома'}`;
+  document.getElementById('error-message').textContent = msg;
+  document.getElementById('error-state').style.display = 'flex';
 }
 
 // ============================================
 // УТИЛІТИ
 // ============================================
 
-/**
- * Форматує секунди у читабельний рядок тривалості.
- * 600 → "10 хв", 10800 → "3 год"
- */
 function formatDuration(seconds) {
-  if (seconds < 3600) {
-    return `${Math.round(seconds / 60)} хв`;
-  }
+  if (seconds < 3600) return `${Math.round(seconds / 60)} хв`;
   const h = Math.floor(seconds / 3600);
   const m = Math.round((seconds % 3600) / 60);
   return m > 0 ? `${h} год ${m} хв` : `${h} год`;
 }
 
-/**
- * Правильна форма українського слова залежно від числа.
- * pluralize(1, 'тест', 'тести', 'тестів') → "тест"
- * pluralize(2, 'тест', 'тести', 'тестів') → "тести"
- * pluralize(5, 'тест', 'тести', 'тестів') → "тестів"
- */
 function pluralize(count, one, few, many) {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-
-  if (mod100 >= 11 && mod100 <= 14) return many;
-  if (mod10 === 1) return one;
-  if (mod10 >= 2 && mod10 <= 4) return few;
+  const m10 = count % 10, m100 = count % 100;
+  if (m100 >= 11 && m100 <= 14) return many;
+  if (m10 === 1)                 return one;
+  if (m10 >= 2 && m10 <= 4)     return few;
   return many;
 }
 
-/**
- * Toast-повідомлення (та сама функція що і в інших файлах).
- */
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function showToast(message, type = 'default') {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');

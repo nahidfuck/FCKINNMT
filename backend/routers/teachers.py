@@ -232,3 +232,55 @@ def _generate_unique_invite_code(db: Session, length: int = 8) -> str:
             return code
 
     raise RuntimeError("Не вдалося згенерувати унікальний invite_code")
+
+
+@router.post(
+    "/groups/{group_id}/assign",
+    status_code=201,
+    summary="Задати тест групі"
+)
+def assign_test_to_group(
+    group_id: int,
+    payload:  schemas.AssignTestPayload,
+    db:       Session     = Depends(get_db),
+    teacher:  models.User = Depends(get_current_teacher),
+):
+    """
+    Прив'язує тест до групи.
+    Ідемпотентний: повторне призначення того ж тесту не створює дубль.
+    """
+    # Перевіряємо що група належить цьому вчителю
+    group = db.query(models.Group).filter(
+        models.Group.id == group_id,
+        models.Group.teacher_id == teacher.id,
+    ).first()
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Групу не знайдено")
+
+    # Перевіряємо що тест існує
+    test = db.query(models.Test).filter(
+        models.Test.id == payload.test_id,
+        models.Test.is_published == True,
+    ).first()
+
+    if not test:
+        raise HTTPException(status_code=404, detail="Тест не знайдено")
+
+    # Ідемпотентність: якщо вже призначено — нічого не робимо
+    existing = db.query(models.GroupTest).filter(
+        models.GroupTest.group_id == group_id,
+        models.GroupTest.test_id  == payload.test_id,
+    ).first()
+
+    if existing:
+        return {"message": "Тест вже призначено цій групі", "already_assigned": True}
+
+    assignment = models.GroupTest(group_id=group_id, test_id=payload.test_id)
+    db.add(assignment)
+    db.commit()
+
+    return {
+        "message": f"Тест «{test.title}» успішно задано групі «{group.name}»",
+        "already_assigned": False,
+    }

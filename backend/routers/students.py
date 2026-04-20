@@ -67,3 +67,52 @@ def join_group(
         message="Ви успішно приєднались до групи!",
         group_name=group.name,
     )
+
+
+@router.get(
+    "/my-group",
+    summary="Моя група та задані тести"
+)
+def get_my_group(
+    db:           Session     = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Повертає дані групи студента + список тестів, виданих цій групі.
+    Якщо студент не в групі — 404.
+    """
+    if not current_user.group_id:
+        raise HTTPException(
+            status_code=404,
+            detail="Ви ще не приєдналися до жодної групи"
+        )
+
+    group = db.query(models.Group).filter(
+        models.Group.id == current_user.group_id
+    ).first()
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Групу не знайдено")
+
+    # Завантажуємо задані тести через GroupTest
+    group_tests = db.query(models.GroupTest).filter(
+        models.GroupTest.group_id == group.id
+    ).all()
+
+    assigned = []
+    for gt in group_tests:
+        test = gt.test
+        assigned.append(schemas.AssignedTestItem(
+            id=test.id,
+            title=test.title,
+            subject=test.subject,
+            duration=test.duration,
+            question_count=len(test.questions),
+        ))
+
+    return schemas.MyGroupResponse(
+        group_id=group.id,
+        group_name=group.name,
+        invite_code=group.invite_code,
+        assigned_tests=assigned,
+    )

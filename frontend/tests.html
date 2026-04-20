@@ -56,6 +56,29 @@
        ================================================ -->
   <main class="list-main">
 
+    <!-- ================================================
+         БЛОК ГРУПИ (заповнюється JS залежно від стану)
+         ================================================ -->
+    <div id="group-block" style="margin-bottom: 1.5rem;"></div>
+
+    <!-- ================================================
+         ЗАДАНІ ТЕСТИ (показується якщо група є і є задані тести)
+         ================================================ -->
+    <div id="assigned-tests-section" style="display:none; margin-bottom: 2rem;">
+      <div style="
+        display:flex; align-items:center; gap:0.75rem;
+        margin-bottom:1rem; padding-bottom:0.75rem;
+        border-bottom:1px solid var(--color-border);
+      ">
+        <span style="font-size:1.4rem;">🎯</span>
+        <span style="
+          font-family:var(--font-display); font-size:1rem;
+          font-weight:700; color:var(--color-accent);
+        ">Задані вчителем тести</span>
+      </div>
+      <div class="tests-grid" id="assigned-tests-grid"></div>
+    </div>
+
     <!-- Контейнер для всіх секцій предметів (заповнюється JS) -->
     <div id="subjects-container">
       <!-- Тут з'являться блоки кожного предмета -->
@@ -84,6 +107,7 @@
 
   <!-- Скрипти: api.js → auth.js (logout) → tests-list.js -->
   <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/tests-list.js"></script>
 
   <style>
@@ -189,6 +213,62 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
+
+    /* Блок групи */
+    .group-status-block {
+      padding: 0.875rem 1.25rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .group-status-block.in-group {
+      border-color: rgba(63, 185, 80, 0.4);
+      background: var(--color-success-bg);
+    }
+
+    .group-status-text {
+      font-size: 0.88rem;
+      color: var(--color-text);
+      flex: 1;
+    }
+
+    .join-group-form {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .join-code-input {
+      padding: 7px 12px;
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-text);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      width: 130px;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .join-code-input:focus {
+      outline: none;
+      border-color: var(--color-accent);
+    }
+
+    .join-code-input::placeholder {
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
   </style>
 </body>
 </html>

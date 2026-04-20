@@ -488,6 +488,40 @@
     </div>
   </div>
 
+
+  <!-- ====== МОДАЛКА: Задати тест групі ====== -->
+  <div class="modal-overlay" id="modal-assign-test">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">🎯 Задати тест групі</span>
+        <button class="modal-close" aria-label="Закрити">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="
+          font-size:0.78rem; color:var(--color-text-muted);
+          background:var(--color-surface-2); border:1px solid var(--color-border);
+          border-radius:var(--radius-sm); padding:8px 12px; margin-bottom:1.25rem;
+          font-family:var(--font-mono);
+        ">
+          Група: <span id="assign-group-name" style="color:var(--color-accent);">—</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="assign-test-select">Оберіть тест</label>
+          <select class="form-select" id="assign-test-select">
+            <option value="">Завантаження тестів...</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost modal-close">Скасувати</button>
+        <button class="btn btn-primary" id="btn-confirm-assign">
+          <span class="btn-text">🎯 Задати</span>
+          <span class="spinner" style="display:none;width:14px;height:14px;border:2px solid rgba(0,0,0,0.3);border-top-color:#000;border-radius:50%;"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-container" id="toast-container"></div>
 
   <style>

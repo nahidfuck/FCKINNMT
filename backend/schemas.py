@@ -204,6 +204,8 @@ class UserRegister(BaseModel):
     password:  str       = Field(..., min_length=8, max_length=100,
                                  description="Мінімум 8 символів")
     full_name: Optional[str] = Field(None, max_length=200)
+    # Роль передається при реєстрації. Валідація на рівні роутера.
+    role:      str            = Field("student", pattern="^(student|teacher)$")
 
 
 class UserPublic(BaseModel):
@@ -212,6 +214,8 @@ class UserPublic(BaseModel):
     email:      str
     full_name:  Optional[str] = None
     role:       str
+    group_id:   Optional[int] = None   # ID групи (для студентів)
+    group_name: Optional[str] = None   # Назва групи (для зручності фронтенду)
     created_at: datetime
 
     class Config:
@@ -270,3 +274,32 @@ class JoinGroupResponse(BaseModel):
     """Відповідь після успішного приєднання до групи."""
     message:    str = "Ви успішно приєднались до групи!"
     group_name: str
+
+
+# ============================================
+# GROUP TEST SCHEMAS
+# ============================================
+
+class AssignTestPayload(BaseModel):
+    """Тіло POST /api/teachers/groups/{group_id}/assign."""
+    test_id: int = Field(..., gt=0)
+
+
+class AssignedTestItem(BaseModel):
+    """Один тест із списку виданих групі."""
+    id:          int
+    title:       str
+    subject:     SubjectPublic
+    duration:    int
+    question_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class MyGroupResponse(BaseModel):
+    """Відповідь GET /api/students/my-group."""
+    group_id:       int
+    group_name:     str
+    invite_code:    str
+    assigned_tests: list[AssignedTestItem] = []
