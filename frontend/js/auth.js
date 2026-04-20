@@ -12,12 +12,6 @@
 // КОНСТАНТИ
 // ============================================
 
-// Ключ у localStorage де зберігаємо JWT токен
-const TOKEN_KEY = 'nmt_token';
-
-// Ключ де зберігаємо дані юзера (щоб не декодувати токен щоразу)
-const USER_KEY = 'nmt_user';
-
 // Куди redirect після успішного входу
 const REDIRECT_AFTER_LOGIN = 'tests.html';
 
@@ -248,25 +242,3 @@ function showToast(message, type = 'default') {
   setTimeout(() => toast.remove(), 3000);
 }
 
-// ============================================
-// ПУБЛІЧНІ УТИЛІТИ (для інших JS-файлів)
-// ============================================
-
-/**
- * Повертає збережені дані юзера або null.
- * Використовуй у tests-list.js для відображення імені в шапці.
- */
-function getCurrentUser() {
-  try {
-    return JSON.parse(localStorage.getItem(USER_KEY));
-  } catch { return null; }
-}
-
-/**
- * Виходить з акаунту: очищає токен і redirect на auth.html.
- */
-function logout() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  window.location.href = 'auth.html';
-}
