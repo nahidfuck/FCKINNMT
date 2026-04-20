@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse
 
 from config import settings
 from database import engine, Base
-from routers import tests, sessions, reports, auth
+from routers import tests, sessions, reports, auth, teachers, students
 
 Base.metadata.create_all(bind=engine)
 
@@ -40,6 +40,8 @@ app.include_router(tests.router)
 app.include_router(sessions.router)
 app.include_router(reports.router)
 app.include_router(auth.router)
+app.include_router(teachers.router)
+app.include_router(students.router)
 
 
 @app.get("/api/health", tags=["Системні"])

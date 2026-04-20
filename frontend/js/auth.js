@@ -13,10 +13,10 @@
 // ============================================
 
 // Ключ у localStorage де зберігаємо JWT токен
-
-// const TOKEN_KEY = 'nmt_token';
+const TOKEN_KEY = 'nmt_token';
 
 // Ключ де зберігаємо дані юзера (щоб не декодувати токен щоразу)
+const USER_KEY = 'nmt_user';
 
 // Куди redirect після успішного входу
 const REDIRECT_AFTER_LOGIN = 'tests.html';
@@ -26,9 +26,17 @@ const REDIRECT_AFTER_LOGIN = 'tests.html';
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Якщо юзер вже авторизований — одразу на головну
+  // Якщо юзер вже авторизований — редірект залежно від ролі
   if (localStorage.getItem(TOKEN_KEY)) {
-    window.location.href = REDIRECT_AFTER_LOGIN;
+    try {
+      const user = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+      const role = user?.role;
+      window.location.href = (role === 'teacher' || role === 'admin')
+        ? 'teacher-dashboard.html'
+        : 'tests.html';
+    } catch {
+      window.location.href = 'tests.html';
+    }
     return;
   }
 
@@ -183,9 +191,14 @@ function onAuthSuccess(result) {
 
   showToast(`👋 Вітаємо, ${result.user.full_name || result.user.email}!`, 'success');
 
-  // Невелика затримка щоб toast встиг показатися
+  // Редірект залежно від ролі
+  const role = result.user.role;
+  const redirectTo = role === 'teacher' || role === 'admin'
+    ? 'teacher-dashboard.html'
+    : 'tests.html';
+
   setTimeout(() => {
-    window.location.href = REDIRECT_AFTER_LOGIN;
+    window.location.href = redirectTo;
   }, 800);
 }
 
@@ -235,3 +248,25 @@ function showToast(message, type = 'default') {
   setTimeout(() => toast.remove(), 3000);
 }
 
+// ============================================
+// ПУБЛІЧНІ УТИЛІТИ (для інших JS-файлів)
+// ============================================
+
+/**
+ * Повертає збережені дані юзера або null.
+ * Використовуй у tests-list.js для відображення імені в шапці.
+ */
+function getCurrentUser() {
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY));
+  } catch { return null; }
+}
+
+/**
+ * Виходить з акаунту: очищає токен і redirect на auth.html.
+ */
+function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  window.location.href = 'auth.html';
+}

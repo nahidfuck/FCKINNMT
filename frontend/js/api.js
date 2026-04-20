@@ -246,6 +246,36 @@ const api = {
     return request('/api/auth/me');
   },
 
+
+  // --- ВЧИТЕЛЬ ---
+
+  /** Створити нову групу. */
+  createGroup(name) {
+    return request('/api/teachers/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  /** Отримати список груп поточного вчителя. */
+  getMyGroups() {
+    return request('/api/teachers/groups');
+  },
+
+  /** Отримати статистику учнів усіх груп вчителя. */
+  getStudentsStats() {
+    return request('/api/teachers/stats');
+  },
+
+  // --- СТУДЕНТ ---
+
+  /** Приєднатись до групи за invite_code. */
+  joinGroup(inviteCode) {
+    return request(`/api/students/join/${inviteCode.trim().toUpperCase()}`, {
+      method: 'POST',
+    });
+  },
+
   // --- УТИЛІТИ ---
 
   /**
@@ -261,17 +291,3 @@ const api = {
     }
   },
 };
-
-const USER_KEY = 'nmt_user';
-
-function getCurrentUser() {
-  try {
-    return JSON.parse(localStorage.getItem(USER_KEY));
-  } catch { return null; }
-}
-
-function logout() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  window.location.href = 'auth.html';
-}

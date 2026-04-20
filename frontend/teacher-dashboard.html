@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>НМТ Платформа — Кабінет вчителя</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Geologica:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* =============================================
+       Стилі специфічні для кабінету вчителя
+       ============================================= */
+
+    /* --- Лейаут: sidebar + контент --- */
+    .dashboard-layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: calc(100vh - 64px); /* мінус шапка */
+    }
+
+    /* --- Sidebar --- */
+    .sidebar {
+      background: var(--color-surface);
+      border-right: 1px solid var(--color-border);
+      padding: 1.5rem 0;
+      position: sticky;
+      top: 64px;
+      height: calc(100vh - 64px);
+      overflow-y: auto;
+    }
+
+    .sidebar-label {
+      font-family: var(--font-display);
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--color-text-faint);
+      padding: 0 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .sidebar-nav {
+      list-style: none;
+      margin-bottom: 1.5rem;
+    }
+
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+      font-family: var(--font-body);
+      transition: all var(--transition-fast);
+      border-left: 2px solid transparent;
+    }
+
+    .sidebar-link:hover {
+      color: var(--color-text);
+      background: var(--color-surface-2);
+    }
+
+    .sidebar-link.active {
+      color: var(--color-accent);
+      border-left-color: var(--color-accent);
+      background: var(--color-accent-glow);
+    }
+
+    .sidebar-icon { font-size: 1rem; }
+
+    /* --- Головний контент --- */
+    .dashboard-content {
+      padding: 2rem;
+      min-width: 0; /* fix flex overflow */
+    }
+
+    /* --- Секції (вкладки) --- */
+    .dashboard-section {
+      display: none;
+    }
+
+    .dashboard-section.active {
+      display: block;
+      animation: fade-in 0.2s ease;
+    }
+
+    /* --- Заголовок секції --- */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.75rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--color-text);
+    }
+
+    /* --- Картки груп --- */
+    .groups-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .group-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      animation: fade-in 0.25s ease both;
+    }
+
+    .group-card-name {
+      font-family: var(--font-display);
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--color-text);
+      margin-bottom: 0.75rem;
+    }
+
+    /* Блок з invite-кодом */
+    .invite-code-block {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .invite-code-label {
+      font-size: 0.7rem;
+      color: var(--color-text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .invite-code-value {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--color-accent);
+      letter-spacing: 0.15em;
+    }
+
+    .btn-copy {
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      background: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-muted);
+      cursor: pointer;
+      font-family: var(--font-body);
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+    }
+
+    .btn-copy:hover {
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+    }
+
+    .btn-copy.copied {
+      border-color: var(--color-success);
+      color: var(--color-success);
+    }
+
+    .group-card-meta {
+      font-size: 0.78rem;
+      color: var(--color-text-muted);
+    }
+
+    /* --- Таблиця статистики --- */
+    .stats-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+    }
+
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    .stats-table th {
+      font-family: var(--font-display);
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+      background: var(--color-surface-2);
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--color-border);
+      white-space: nowrap;
+    }
+
+    .stats-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--color-border);
+      color: var(--color-text);
+      vertical-align: middle;
+    }
+
+    .stats-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .stats-table tr:hover td {
+      background: var(--color-surface-2);
+    }
+
+    .score-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .score-badge.good    { color: var(--color-success); }
+    .score-badge.medium  { color: var(--color-warning); }
+    .score-badge.bad     { color: var(--color-danger);  }
+
+    /* --- Форма створення групи (модалка) --- */
+    .modal-input {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-text);
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      transition: border-color var(--transition-fast);
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .modal-input:focus {
+      outline: none;
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px var(--color-accent-glow);
+    }
+
+    /* --- Порожній стан --- */
+    .empty-block {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--color-text-muted);
+      font-size: 0.9rem;
+    }
+
+    .empty-block-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+    /* --- Фільтр/пошук --- */
+    .stats-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .stats-search {
+      flex: 1;
+      min-width: 180px;
+      padding: 8px 12px;
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-text);
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .stats-search:focus {
+      outline: none;
+      border-color: var(--color-accent);
+    }
+
+    .stats-count {
+      font-size: 0.8rem;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+    }
+
+    /* Адаптивність */
+    @media (max-width: 768px) {
+      .dashboard-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+        padding: 0.5rem 0;
+      }
+
+      .sidebar-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        padding: 0 0.75rem;
+      }
+
+      .sidebar-link {
+        border-left: none;
+        border-bottom: 2px solid transparent;
+        border-radius: var(--radius-sm);
+        padding: 6px 12px;
+        font-size: 0.82rem;
+      }
+
+      .sidebar-link.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--color-accent);
+      }
+
+      .dashboard-content { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ШАПКА -->
+  <header class="app-header">
+    <div class="header-left">
+      <span class="header-subject-badge">НМТ</span>
+      <span class="header-title">Кабінет вчителя</span>
+    </div>
+    <div class="header-right">
+      <span class="user-name" id="user-name" style="font-size:0.88rem;color:var(--color-text);font-weight:500;"></span>
+      <button id="btn-logout" style="
+        display:flex;align-items:center;gap:0.4rem;padding:6px 14px;
+        background:transparent;border:1px solid var(--color-border);
+        border-radius:var(--radius-sm);color:var(--color-text-muted);
+        font-family:var(--font-body);font-size:0.85rem;cursor:pointer;
+        transition:all var(--transition-fast);
+      ">↪ Вийти</button>
+    </div>
+  </header>
+
+  <!-- ЛЕЙАУТ: sidebar + контент -->
+  <div class="dashboard-layout">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="sidebar-label">Розділи</div>
+      <ul class="sidebar-nav">
+        <li>
+          <button class="sidebar-link active" data-section="groups">
+            <span class="sidebar-icon">👥</span> Мої групи
+          </button>
+        </li>
+        <li>
+          <button class="sidebar-link" data-section="stats">
+            <span class="sidebar-icon">📊</span> Статистика
+          </button>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- ОСНОВНИЙ КОНТЕНТ -->
+    <main class="dashboard-content">
+
+      <!-- ====== СЕКЦІЯ: МОЇ ГРУПИ ====== -->
+      <section class="dashboard-section active" id="section-groups">
+
+        <div class="section-header">
+          <h1 class="section-title">👥 Мої групи</h1>
+          <button class="btn btn-primary" id="btn-open-create-group">
+            + Створити групу
+          </button>
+        </div>
+
+        <!-- Сітка карток груп (заповнюється JS) -->
+        <div class="groups-grid" id="groups-grid">
+          <!-- skeleton або картки -->
+        </div>
+
+        <!-- Порожній стан -->
+        <div class="empty-block" id="groups-empty" style="display:none;">
+          <div class="empty-block-icon">🏫</div>
+          <p>У вас ще немає груп.</p>
+          <p>Натисніть <strong>+ Створити групу</strong>, щоб почати.</p>
+        </div>
+
+      </section>
+
+      <!-- ====== СЕКЦІЯ: СТАТИСТИКА ====== -->
+      <section class="dashboard-section" id="section-stats">
+
+        <div class="section-header">
+          <h1 class="section-title">📊 Статистика учнів</h1>
+          <button class="btn btn-ghost" id="btn-refresh-stats" title="Оновити">
+            ↺ Оновити
+          </button>
+        </div>
+
+        <!-- Пошук/фільтр -->
+        <div class="stats-toolbar">
+          <input
+            class="stats-search"
+            type="text"
+            id="stats-search"
+            placeholder="🔍 Пошук за іменем або тестом..."
+          >
+          <span class="stats-count" id="stats-count"></span>
+        </div>
+
+        <!-- Таблиця результатів (заповнюється JS) -->
+        <div class="stats-table-wrap" id="stats-table-wrap">
+          <!-- заповнюється JS -->
+        </div>
+
+        <!-- Порожній стан -->
+        <div class="empty-block" id="stats-empty" style="display:none;">
+          <div class="empty-block-icon">📭</div>
+          <p>Ще немає результатів.</p>
+          <p>Учні з'являться тут після того як пройдуть тести.</p>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ====== МОДАЛКА: Створення групи ====== -->
+  <div class="modal-overlay" id="modal-create-group">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">+ Нова група</span>
+        <button class="modal-close" aria-label="Закрити">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="input-group-name">
+            Назва групи
+          </label>
+          <input
+            class="modal-input"
+            type="text"
+            id="input-group-name"
+            placeholder="Наприклад: 11-А Математика"
+            maxlength="200"
+          >
+          <div style="font-size:0.75rem;color:var(--color-text-muted);margin-top:0.4rem;">
+            Після створення ви отримаєте код для запрошення учнів.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost modal-close">Скасувати</button>
+        <button class="btn btn-primary" id="btn-create-group">
+          <span class="btn-text">Створити</span>
+          <span class="spinner" style="display:none;width:14px;height:14px;border:2px solid rgba(0,0,0,0.3);border-top-color:#000;border-radius:50%;"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinning { animation: spin 0.7s linear infinite; }
+
+    /* Skeleton */
+    .skeleton-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      height: 130px;
+    }
+
+    .skeleton-line {
+      height: 12px;
+      background: var(--color-surface-2);
+      border-radius: 4px;
+      margin-bottom: 10px;
+      animation: pulse 1.5s ease infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+  </style>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/teacher.js"></script>
+</body>
+</html>

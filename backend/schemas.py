@@ -223,3 +223,50 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type:   str = "bearer"
     user:         UserPublic    # Зручно: повертаємо дані юзера разом з токеном
+
+
+# ============================================
+# TEACHER / GROUP SCHEMAS
+# ============================================
+
+class GroupCreate(BaseModel):
+    """Тіло POST /api/teachers/groups."""
+    name: str = Field(..., min_length=2, max_length=200,
+                      description="Назва групи, наприклад: '11-А Математика'")
+
+
+class GroupPublic(BaseModel):
+    """Публічні дані групи."""
+    id:          int
+    name:        str
+    invite_code: str          # Показуємо вчителю щоб він роздав учням
+    teacher_id:  int
+    created_at:  datetime
+    member_count: int = 0     # Скільки учнів у групі (рахуємо окремо)
+
+    class Config:
+        from_attributes = True
+
+
+class StudentStatRow(BaseModel):
+    """
+    Один рядок у таблиці статистики вчителя.
+    Відповідає одній завершеній сесії одного учня.
+    """
+    student_name:  str           # full_name або email учня
+    student_email: str
+    group_name:    str
+    test_title:    str
+    score:         float
+    max_score:     float
+    percentage:    float
+    finished_at:   Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class JoinGroupResponse(BaseModel):
+    """Відповідь після успішного приєднання до групи."""
+    message:    str = "Ви успішно приєднались до групи!"
+    group_name: str

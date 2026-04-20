@@ -17,20 +17,22 @@ from sqlalchemy.orm import Session
 import models
 import schemas
 from database import get_db
+from routers.auth import get_optional_user  # nullable auth залежність
 
 router = APIRouter(prefix="/api/sessions", tags=["Сесії"])
 
 
 @router.post("/", response_model=schemas.SessionPublic, status_code=201)
-def create_session(payload: schemas.SessionCreate, db: Session = Depends(get_db)):
+def create_session(
+    payload:      schemas.SessionCreate,
+    db:           Session              = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_optional_user),
+):
     """
     Починає нову сесію проходження тесту.
-
-    Генерує унікальний session_token — клієнт зберігає його
-    і використовує для всіх наступних запитів цієї сесії.
-    Токен замінює авторизацію на поточному етапі.
+    Якщо юзер авторизований — прив'язуємо сесію до user_id.
+    Це потрібно для статистики вчителя.
     """
-    # Перевіряємо чи тест існує
     test = db.query(models.Test).filter(
         models.Test.id == payload.test_id,
         models.Test.is_published == True
@@ -39,14 +41,15 @@ def create_session(payload: schemas.SessionCreate, db: Session = Depends(get_db)
     if not test:
         raise HTTPException(status_code=404, detail="Тест не знайдено")
 
-    # Генеруємо безпечний випадковий токен (32 байти = 64 hex-символи)
     token = secrets.token_hex(32)
 
     session = models.TestSession(
         test_id=payload.test_id,
         session_token=token,
         time_left=test.duration,
-        status=models.SessionStatus.active
+        status=models.SessionStatus.active,
+        # Прив'язуємо до юзера якщо він авторизований
+        user_id=current_user.id if current_user else None,
     )
     db.add(session)
     db.commit()
