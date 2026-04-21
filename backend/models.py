@@ -152,6 +152,7 @@ class Question(Base):
     order_index       = Column(Integer, default=0)
     points            = Column(Float, default=1.0)
     explanation       = Column(Text, nullable=True)
+    image_url         = Column(String(500), nullable=True)  # URL зображення до питання
     correct_answer_id = Column(
         Integer,
         ForeignKey("answer_options.id", use_alter=True, name="fk_correct_answer"),

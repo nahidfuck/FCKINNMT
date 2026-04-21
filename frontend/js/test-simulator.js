@@ -77,6 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 /**
  * Рендерить поточне питання та оновлює навігатор.
+ * Якщо питання має image_url — відображає зображення під текстом.
  */
 function renderQuestion() {
   const q     = currentQuestion();
@@ -85,6 +86,38 @@ function renderQuestion() {
 
   document.getElementById('question-number').textContent = `Питання ${num} з ${total}`;
   document.getElementById('question-text').innerHTML     = q.text;
+
+  // --- Зображення питання ---
+  // Видаляємо попереднє зображення (якщо було від попереднього питання)
+  const existingImg = document.getElementById('question-image-wrap');
+  if (existingImg) existingImg.remove();
+
+  if (q.image_url) {
+    const imgWrap = document.createElement('div');
+    imgWrap.id = 'question-image-wrap';
+    imgWrap.style.cssText = 'margin-top: 1.25rem;';
+
+    imgWrap.innerHTML = `
+      <img
+        src="${q.image_url}"
+        alt="Ілюстрація до питання"
+        class="question-image"
+        style="
+          display: block;
+          max-width: 100%;
+          max-height: 320px;
+          width: auto;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--color-border);
+          background: var(--color-surface-2);
+          object-fit: contain;
+        "
+        onerror="this.parentElement.style.display='none'"
+      >
+    `;
+    // Вставляємо між текстом питання і списком варіантів
+    document.getElementById('question-text').after(imgWrap);
+  }
 
   renderOptions(q);
   updateNavigator();

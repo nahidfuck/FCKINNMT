@@ -50,6 +50,7 @@ class QuestionPublic(BaseModel):
     type:        str
     text:        str
     order_index: int
+    image_url:   Optional[str] = None   # URL зображення (може бути null)
     options:     list[AnswerOptionPublic]
     # correct_answer_id — НАВМИСНО ВІДСУТНІЙ
 
