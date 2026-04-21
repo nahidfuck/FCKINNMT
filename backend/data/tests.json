@@ -13,7 +13,7 @@
     "questions": [
       {
         "text": "На графіку зображено функцію <strong>y = f(x)</strong>. Визначте, на якому проміжку функція є спадною.",
-        "image_url": "https://via.placeholder.com/480x220/161b22/f0a500?text=Graph+y%3Df(x)",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Parabola.svg/800px-Parabola.svg.png",
         "type": "single",
         "points": 1.0,
         "explanation": "Функція спадає там де графік іде вниз зліва направо — проміжок (2; 5).",
@@ -41,7 +41,7 @@
       },
       {
         "text": "Трикутник зображено на рисунку. Знайдіть площу трикутника, якщо відомо що основа дорівнює 8 см, а висота — 5 см.",
-        "image_url": "https://via.placeholder.com/380x200/161b22/58a6ff?text=Triangle+h%3D5+b%3D8",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Parabola.svg/800px-Parabola.svg.png",
         "type": "single",
         "points": 1.0,
         "explanation": "S = (основа × висота) / 2 = (8 × 5) / 2 = 20 см².",
