@@ -41,7 +41,7 @@
       },
       {
         "text": "Трикутник зображено на рисунку. Знайдіть площу трикутника, якщо відомо що основа дорівнює 8 см, а висота — 5 см.",
-        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Parabola.svg/800px-Parabola.svg.png",
+        "image_url": "https://cdn.britannica.com/28/278828-050-0172B68E/Depiction-of-right-triangle.jpg",
         "type": "single",
         "points": 1.0,
         "explanation": "S = (основа × висота) / 2 = (8 × 5) / 2 = 20 см².",
