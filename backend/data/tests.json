@@ -3,140 +3,99 @@
     "subject_slug": "math",
     "subject_name": "Математика",
     "subject_icon": "📐",
-    "title": "НМТ Математика — Варіант 3",
-    "description": "Алгебра, геометрія та функції. 5 питань.",
-    "duration": 600,
+    "title": "НМТ Математика — Повний формат",
+    "description": "Демо-тест з усіма типами питань НМТ.",
+    "duration": 900,
     "is_premium": false,
     "is_published": true,
-    "order_index": 3,
-    "reference_materials": "<h3>📐 Геометрія</h3><p><strong>S = πr²</strong> — Площа кола</p><p><strong>a² + b² = c²</strong> — Теорема Піфагора</p><hr><h3>📊 Алгебра</h3><p><strong>D = b² − 4ac</strong> — Дискримінант</p>",
+    "order_index": 10,
+    "reference_materials": "<h3>📐 Формули</h3><p><strong>D = b²−4ac</strong></p><p><strong>S = πr²</strong></p>",
     "questions": [
+
       {
-        "text": "На графіку зображено функцію <strong>y = f(x)</strong>. Визначте, на якому проміжку функція є спадною.",
-        "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Parabola.svg/800px-Parabola.svg.png",
         "type": "single",
-        "points": 1.0,
-        "explanation": "Функція спадає там де графік іде вниз зліва направо — проміжок (2; 5).",
-        "options": [
-          { "text": "(−∞; −1)" },
-          { "text": "(−1; 2)" },
-          { "text": "(2; 5)" },
-          { "text": "(5; +∞)" }
-        ],
-        "correct_index": 2
-      },
-      {
-        "text": "Знайдіть значення виразу: <strong>(3² + 4²) ÷ 5</strong>",
+        "text": "Знайдіть значення виразу: <strong>2³ + 4² − √25</strong>",
         "image_url": null,
-        "type": "single",
-        "points": 1.0,
-        "explanation": "3²=9, 4²=16, 9+16=25, 25÷5=5.",
+        "points": 1,
+        "explanation": "2³=8, 4²=16, √25=5. Отже: 8+16−5 = 19",
         "options": [
-          { "text": "4" },
-          { "text": "5" },
-          { "text": "6" },
-          { "text": "7" }
+          { "text": "19" },
+          { "text": "21" },
+          { "text": "23" },
+          { "text": "17" }
         ],
-        "correct_index": 1
+        "correct_index": 0
       },
+
       {
-        "text": "Трикутник зображено на рисунку. Знайдіть площу трикутника, якщо відомо що основа дорівнює 8 см, а висота — 5 см.",
-        "image_url": "https://cdn.britannica.com/28/278828-050-0172B68E/Depiction-of-right-triangle.jpg",
-        "type": "single",
-        "points": 1.0,
-        "explanation": "S = (основа × висота) / 2 = (8 × 5) / 2 = 20 см².",
-        "options": [
-          { "text": "13 см²" },
-          { "text": "20 см²" },
-          { "text": "40 см²" },
-          { "text": "16 см²" }
-        ],
-        "correct_index": 1
-      },
-      {
-        "text": "Розв'яжіть рівняння: <strong>2x² − 8 = 0</strong>",
+        "type": "multiple",
+        "text": "Оберіть усі натуральні числа з наступного списку:",
         "image_url": null,
-        "type": "single",
-        "points": 1.0,
-        "explanation": "2x²=8 → x²=4 → x=±2.",
+        "points": 1,
+        "explanation": "Натуральні числа — це додатні цілі: 1, 2, 3... Нуль, від'ємні та дроби не є натуральними.",
         "options": [
-          { "text": "x = 4" },
-          { "text": "x = ±2" },
-          { "text": "x = 2" },
-          { "text": "x = ±4" }
-        ],
-        "correct_index": 1
-      },
-      {
-        "text": "Яке з наступних чисел є ірраціональним?",
-        "image_url": null,
-        "type": "single",
-        "points": 1.0,
-        "explanation": "√2 ≈ 1.41421... — нескінченний нерегулярний дріб, тому ірраціональне.",
-        "options": [
-          { "text": "0.333..." },
-          { "text": "√4" },
+          { "text": "−3" },
+          { "text": "0" },
+          { "text": "7" },
+          { "text": "3/4" },
+          { "text": "12" },
           { "text": "√2" },
-          { "text": "7/3" }
+          { "text": "100" }
+        ],
+        "correct_indices": [2, 4, 6]
+      },
+
+      {
+        "type": "matching",
+        "text": "Встановіть відповідність між формулою та тим, що вона обчислює.",
+        "image_url": null,
+        "points": 4,
+        "explanation": "Кожна формула відповідає своїй геометричній фігурі та параметру.",
+        "left": [
+          { "id": "1", "text": "S = a²" },
+          { "id": "2", "text": "S = πr²" },
+          { "id": "3", "text": "C = 2πr" },
+          { "id": "4", "text": "V = a³" }
+        ],
+        "right": [
+          { "id": "A", "text": "Площа кола" },
+          { "id": "B", "text": "Об'єм куба" },
+          { "id": "C", "text": "Площа квадрата" },
+          { "id": "D", "text": "Довжина кола" },
+          { "id": "E", "text": "Периметр квадрата" }
+        ],
+        "correct_pairs": {
+          "1": "C",
+          "2": "A",
+          "3": "D",
+          "4": "B"
+        }
+      },
+
+      {
+        "type": "open",
+        "text": "Периметр квадрата дорівнює 28 см. Знайдіть його площу (введіть число в см²):",
+        "image_url": "https://via.placeholder.com/360x180/161b22/58a6ff?text=Square+P%3D28cm",
+        "points": 2,
+        "explanation": "Сторона = 28÷4 = 7 см. Площа = 7² = 49 см².",
+        "correct_answers": ["49", "49 см²", "49см²"]
+      },
+
+      {
+        "type": "single",
+        "text": "Якщо дискримінант квадратного рівняння D < 0, то рівняння має:",
+        "image_url": null,
+        "points": 1,
+        "explanation": "При D < 0 квадратне рівняння не має дійсних коренів.",
+        "options": [
+          { "text": "Два різні дійсні корені" },
+          { "text": "Один корінь (кратний)" },
+          { "text": "Не має дійсних коренів" },
+          { "text": "Нескінченно багато коренів" }
         ],
         "correct_index": 2
       }
-    ]
-  },
-  {
-    "subject_slug": "ukrainian",
-    "subject_name": "Укр. мова",
-    "subject_icon": "📖",
-    "title": "НМТ Українська мова — Варіант 3",
-    "description": "Орфографія, синтаксис, лексика.",
-    "duration": 600,
-    "is_premium": false,
-    "is_published": true,
-    "order_index": 3,
-    "reference_materials": null,
-    "questions": [
-      {
-        "text": "Яке слово написано <strong>правильно</strong>?",
-        "image_url": null,
-        "type": "single",
-        "points": 1.0,
-        "explanation": "Слово «щоденник» пишеться разом, через апостроф — «пів'яблука».",
-        "options": [
-          { "text": "щоденник" },
-          { "text": "що-денник" },
-          { "text": "що денник" },
-          { "text": "щоденнік" }
-        ],
-        "correct_index": 0
-      },
-      {
-        "text": "Визначте речення, у якому є <strong>однорідні члени</strong>.",
-        "image_url": null,
-        "type": "single",
-        "points": 1.0,
-        "explanation": "Підмети «сонце» і «вітер» є однорідними членами речення.",
-        "options": [
-          { "text": "Він повільно йшов до школи." },
-          { "text": "Сонце і вітер — супутники осені." },
-          { "text": "Вона дуже гарно співає." },
-          { "text": "Кіт лежав на підвіконні." }
-        ],
-        "correct_index": 1
-      },
-      {
-        "text": "Вкажіть рядок, де всі слова пишуться <strong>з м'яким знаком</strong>.",
-        "image_url": null,
-        "type": "single",
-        "points": 1.0,
-        "explanation": "Після «л» перед наступним приголосним м'який знак зберігається: «сіль», «сталь», «міль».",
-        "options": [
-          { "text": "сіль, сталь, міль" },
-          { "text": "кінь, батько, сонце" },
-          { "text": "день, тінь, камінь" },
-          { "text": "ніч, річ, піч" }
-        ],
-        "correct_index": 0
-      }
+
     ]
   }
 ]

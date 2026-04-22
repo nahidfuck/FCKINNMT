@@ -18,7 +18,7 @@ FastAPI використовує її для двох речей:
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -45,14 +45,19 @@ class QuestionPublic(BaseModel):
     """
     Питання БЕЗ правильної відповіді.
     Саме цю схему відправляємо клієнту під час тесту.
+
+    content — специфічні дані типу (для matching: {"left":[...], "right":[...]}).
+    options — варіанти для single/multiple (порожні для matching/open).
+    correct_data — НАВМИСНО ВІДСУТНІЙ (відправляємо тільки після фінішу).
     """
     id:          int
     type:        str
     text:        str
     order_index: int
-    image_url:   Optional[str] = None   # URL зображення (може бути null)
-    options:     list[AnswerOptionPublic]
-    # correct_answer_id — НАВМИСНО ВІДСУТНІЙ
+    points:      float = 1.0
+    image_url:   Optional[str] = None
+    content:     Optional[Any] = None   # JSON-дані специфічні для типу
+    options:     list[AnswerOptionPublic] = []
 
     class Config:
         from_attributes = True
@@ -62,9 +67,15 @@ class QuestionResult(QuestionPublic):
     """
     Питання З правильною відповіддю.
     Відправляємо тільки після завершення сесії.
+
+    correct_data — формат залежить від типу:
+      single:   {"answer_id": 5}
+      multiple: {"answer_ids": [3, 5, 7]}
+      matching: {"pairs": {"1":"A","2":"C","3":"B","4":"D"}}
+      open:     {"answers": ["12","12.0"]}
     """
-    correct_answer_id: Optional[int] = None
-    explanation:       Optional[str] = None
+    correct_data: Optional[Any] = None
+    explanation:  Optional[str] = None
 
 
 # ============================================
@@ -140,12 +151,18 @@ class SessionPublic(BaseModel):
 class AnswerCreate(BaseModel):
     """
     Тіло POST /sessions/{id}/answer — відповідь на питання.
-    answer_option_id = None якщо студент "пропустив".
+
+    answer_data — JSON-відповідь специфічна для типу:
+      single:   {"answer_id": 5}
+      multiple: {"answer_ids": [3, 5]}
+      matching: {"pairs": {"1":"A","2":"C"}}
+      open:     {"text": "12"}
+      null      — якщо is_skipped=true
     """
-    question_id:      int = Field(..., gt=0)
-    answer_option_id: Optional[int] = Field(None, gt=0)
-    is_skipped:       bool = False
-    time_left:        int  = Field(..., ge=0, description="Залишок часу для синхронізації")
+    question_id: int  = Field(..., gt=0)
+    answer_data: Any  = None   # Union[dict, None] — гнучкий формат
+    is_skipped:  bool = False
+    time_left:   int  = Field(..., ge=0)
 
 
 class AnswerPublic(BaseModel):
@@ -167,7 +184,7 @@ class SessionResult(BaseModel):
     percentage:      float
     time_spent:      int            # Скільки секунд витрачено
     questions:       list[QuestionResult]
-    user_answers:    dict[str, Optional[int]]  # ключі — str, бо JSON серіалізує int-ключі як рядки
+    user_answers:    dict[str, Any]  # ключі — str (JSON), значення — answer_data по типу
 
     class Config:
         from_attributes = True

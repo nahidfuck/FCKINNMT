@@ -1,18 +1,29 @@
 """
 models.py — ORM-моделі (структура бази даних)
 ==============================================
-Схема зв'язків:
-  Group (група/клас)
-    ├── teacher: User (хто створив)
-    └── members: [User] (учні)
+Архітектура відповідей по типах питань:
 
-  User
-    ├── group: Group (nullable — до якої групи належить)
-    └── sessions: [TestSession]
+  single:
+    - options: [AnswerOption, ...]
+    - correct_data: {"answer_id": 5}
+    - answer_data:  {"answer_id": 5}
 
-  Subject → Test → Question → AnswerOption
-  TestSession (прив'язана до User) → SessionAnswer
-  BugReport
+  multiple:
+    - options: [AnswerOption, ...]
+    - correct_data: {"answer_ids": [3, 5, 7]}
+    - answer_data:  {"answer_ids": [3, 5]}
+
+  matching:
+    - options: [] (не використовуються)
+    - content:  {"left": [{"id":"1","text":"..."}, ...],
+                 "right": [{"id":"A","text":"..."}, ...]}
+    - correct_data: {"pairs": {"1":"A","2":"C","3":"B","4":"D"}}
+    - answer_data:  {"pairs": {"1":"A","2":"C"}}
+
+  open:
+    - options: [] (не використовуються)
+    - correct_data: {"answers": ["12","12.0","12,0"]}
+    - answer_data:  {"text": "12"}
 """
 
 import enum
@@ -20,7 +31,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Enum, ForeignKey,
-    Integer, String, Text, Float
+    Integer, String, Text, Float, JSON
 )
 from sqlalchemy.orm import relationship
 
@@ -32,9 +43,10 @@ from database import Base
 # ============================================
 
 class QuestionType(str, enum.Enum):
-    single   = "single"
-    multiple = "multiple"
-    open     = "open"
+    single   = "single"    # Одна правильна відповідь (радіо)
+    multiple = "multiple"  # Кілька правильних (чекбокси)
+    matching = "matching"  # Встановлення відповідності (select)
+    open     = "open"      # Відкрита відповідь (input text)
 
 
 class SessionStatus(str, enum.Enum):
@@ -50,28 +62,19 @@ class UserRole(str, enum.Enum):
 
 
 # ============================================
-# GROUP (визначаємо ДО User, щоб FK працював)
+# GROUP
 # ============================================
 
 class Group(Base):
-    """
-    Група/клас вчителя.
-
-    Вчитель створює групу → отримує invite_code → роздає учням.
-    Учень вводить код → його user.group_id оновлюється.
-
-    Один учень може належати тільки до однієї групи (поточне MVP).
-    """
     __tablename__ = "groups"
 
     id          = Column(Integer, primary_key=True, index=True)
-    name        = Column(String(200), nullable=False)           # "11-А Математика"
+    name        = Column(String(200), nullable=False)
     invite_code = Column(String(16), unique=True, nullable=False, index=True)
     teacher_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at  = Column(DateTime, default=datetime.utcnow)
 
-    # Зв'язки
-    teacher = relationship("User", foreign_keys=[teacher_id], back_populates="taught_groups")
+    teacher        = relationship("User", foreign_keys=[teacher_id], back_populates="taught_groups")
     members        = relationship("User", foreign_keys="User.group_id", back_populates="group")
     assigned_tests = relationship("GroupTest", back_populates="group")
 
@@ -81,12 +84,6 @@ class Group(Base):
 # ============================================
 
 class User(Base):
-    """
-    Таблиця користувачів.
-
-    role:     student | teacher | admin
-    group_id: nullable FK → Group (для студентів)
-    """
     __tablename__ = "users"
 
     id              = Column(Integer, primary_key=True, index=True)
@@ -96,11 +93,8 @@ class User(Base):
     role            = Column(Enum(UserRole), default=UserRole.student, nullable=False)
     is_active       = Column(Boolean, default=True)
     created_at      = Column(DateTime, default=datetime.utcnow)
+    group_id        = Column(Integer, ForeignKey("groups.id"), nullable=True)
 
-    # Nullable FK — студент може бути без групи
-    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
-
-    # Зв'язки
     group         = relationship("Group", foreign_keys=[group_id], back_populates="members")
     taught_groups = relationship("Group", foreign_keys="Group.teacher_id", back_populates="teacher")
     sessions      = relationship("TestSession", back_populates="user")
@@ -143,33 +137,43 @@ class Test(Base):
 
 
 class Question(Base):
+    """
+    Питання тесту.
+
+    content      — специфічна структура типу (обов'язково для matching).
+    correct_data — правильні відповіді у форматі специфічному для типу.
+                   Ніколи не відправляємо клієнту під час тесту!
+    """
     __tablename__ = "questions"
 
-    id                = Column(Integer, primary_key=True, index=True)
-    test_id           = Column(Integer, ForeignKey("tests.id"), nullable=False)
-    type              = Column(Enum(QuestionType), default=QuestionType.single)
-    text              = Column(Text, nullable=False)
-    order_index       = Column(Integer, default=0)
-    points            = Column(Float, default=1.0)
-    explanation       = Column(Text, nullable=True)
-    image_url         = Column(String(500), nullable=True)  # URL зображення до питання
-    correct_answer_id = Column(
-        Integer,
-        ForeignKey("answer_options.id", use_alter=True, name="fk_correct_answer"),
-        nullable=True
-    )
+    id          = Column(Integer, primary_key=True, index=True)
+    test_id     = Column(Integer, ForeignKey("tests.id"), nullable=False)
+    type        = Column(Enum(QuestionType), default=QuestionType.single, nullable=False)
+    text        = Column(Text, nullable=False)
+    order_index = Column(Integer, default=0)
+    points      = Column(Float, default=1.0)
+    explanation = Column(Text, nullable=True)
+    image_url   = Column(String(500), nullable=True)
 
-    test           = relationship("Test", back_populates="questions")
-    options        = relationship(
+    # JSON-поля для нових типів питань
+    content      = Column(JSON, nullable=True)   # matching: {"left":[...], "right":[...]}
+    correct_data = Column(JSON, nullable=True)   # правильна відповідь по типу
+
+    # Backward compat: для single/multiple — зберігаємо варіанти в AnswerOption
+    test    = relationship("Test", back_populates="questions")
+    options = relationship(
         "AnswerOption",
         back_populates="question",
         foreign_keys="AnswerOption.question_id",
         order_by="AnswerOption.order_index"
     )
-    correct_answer = relationship("AnswerOption", foreign_keys=[correct_answer_id])
 
 
 class AnswerOption(Base):
+    """
+    Варіанти відповідей для типів single та multiple.
+    Для matching та open — не використовується.
+    """
     __tablename__ = "answer_options"
 
     id          = Column(Integer, primary_key=True, index=True)
@@ -186,18 +190,10 @@ class AnswerOption(Base):
 # ============================================
 
 class TestSession(Base):
-    """
-    Сесія проходження тесту.
-
-    user_id — nullable FK на User.
-    Nullable тому що MVP підтримував анонімні сесії.
-    Для статистики вчителя використовуємо тільки сесії де user_id IS NOT NULL.
-    """
     __tablename__ = "test_sessions"
 
     id            = Column(Integer, primary_key=True, index=True)
     test_id       = Column(Integer, ForeignKey("tests.id"), nullable=False)
-    # Nullable: старі сесії без авторизації залишаються валідними
     user_id       = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     session_token = Column(String(64), unique=True, nullable=False, index=True)
     status        = Column(Enum(SessionStatus), default=SessionStatus.active)
@@ -213,25 +209,27 @@ class TestSession(Base):
 
 
 class SessionAnswer(Base):
+    """
+    Відповідь студента.
+    answer_data — JSON, формат залежить від типу питання:
+      single:   {"answer_id": 5}
+      multiple: {"answer_ids": [3, 5]}
+      matching: {"pairs": {"1":"A","2":"C"}}
+      open:     {"text": "12"}
+    """
     __tablename__ = "session_answers"
 
-    id               = Column(Integer, primary_key=True, index=True)
-    session_id       = Column(Integer, ForeignKey("test_sessions.id"), nullable=False)
-    question_id      = Column(Integer, ForeignKey("questions.id"), nullable=False)
-    answer_option_id = Column(Integer, ForeignKey("answer_options.id"), nullable=True)
-    is_skipped       = Column(Boolean, default=False)
-    answered_at      = Column(DateTime, default=datetime.utcnow)
+    id          = Column(Integer, primary_key=True, index=True)
+    session_id  = Column(Integer, ForeignKey("test_sessions.id"), nullable=False)
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+    answer_data = Column(JSON, nullable=True)   # замість answer_option_id
+    is_skipped  = Column(Boolean, default=False)
+    answered_at = Column(DateTime, default=datetime.utcnow)
 
     session = relationship("TestSession", back_populates="answers")
 
 
-
 class GroupTest(Base):
-    """
-    Зв'язок "Тест задано групі" (вчитель → клас).
-    Багато-до-багатьох: одна група може мати кілька тестів,
-    один тест може бути виданий кільком групам.
-    """
     __tablename__ = "group_tests"
 
     id         = Column(Integer, primary_key=True, index=True)
