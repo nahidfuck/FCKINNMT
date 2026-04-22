@@ -193,16 +193,24 @@ function renderMultipleOptions(list, question) {
   });
 }
 
-// ─── Рендер matching — матриця-сітка (НМТ-стиль) ────────────
+// ─── Рендер matching — два блоки (НМТ-стиль) ─────────────────
 
 /**
- * Рендерить matching-питання у вигляді матриці:
- *   - Рядки: твердження зліва (1, 2, 3, 4)
- *   - Колонки: букви варіантів (А, Б, В, Г, Д)
- *   - На перетині: radio-кнопка
+ * renderMatchingOptions — НМТ-формат з двох блоків:
  *
- * Унікальність: одна буква — тільки один рядок.
- * handleMatchingClick() перевіряє це і знімає попередній вибір.
+ * БЛОК 1: Умова — два стовпчики з текстами
+ *   Ліворуч: 1. Твердження один
+ *            2. Твердження два
+ *   Праворуч: А. Варіант перший
+ *             Б. Варіант другий
+ *
+ * БЛОК 2: Компактна матриця відповідей — тільки цифри і букви
+ *   Колонки: А Б В Г Д
+ *   Рядки:   1 (○ ○ ○ ○ ○)
+ *            2 (○ ○ ○ ○ ○)
+ *
+ * Логіка унікальності збережена у handleMatchingClick().
+ * state.answers[qId] = { pairs: {"1":"А","2":"Г",...} }
  */
 function renderMatchingOptions(list, question) {
   const content    = question.content || {};
@@ -211,22 +219,88 @@ function renderMatchingOptions(list, question) {
   const savedPairs = state.answers[question.id]?.pairs || {};
   const qId        = question.id;
 
-  // ── Обгортка-контейнер (замість <ul><li>) ──
+  // ── Обгортка ──
   const wrapper = document.createElement('li');
-  wrapper.className = 'option-item';
+  wrapper.className  = 'option-item';
   wrapper.style.cssText = 'padding:0; list-style:none;';
 
-  // ── Підказка ──
-  const hint = document.createElement('div');
-  hint.style.cssText = 'font-size:0.78rem;color:var(--color-text-muted);margin-bottom:0.75rem;';
-  hint.textContent   = 'Для кожного рядка оберіть одну букву. Кожна буква може бути використана лише один раз.';
-  wrapper.appendChild(hint);
+  // ════════════════════════════════════════
+  // БЛОК 1: Умова (тексти тверджень і варіантів)
+  // ════════════════════════════════════════
+  const conditionBlock = document.createElement('div');
+  conditionBlock.style.cssText = `
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 1.25rem;
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  `;
 
-  // ── Таблиця ──
+  // Заголовки колонок
+  const leftHeader = document.createElement('div');
+  leftHeader.style.cssText = `
+    font-family: var(--font-display); font-size: 0.6rem;
+    font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--color-text-faint); margin-bottom: 0.4rem;
+    grid-column: 1;
+  `;
+  leftHeader.textContent = 'Твердження';
+
+  const rightHeader = document.createElement('div');
+  rightHeader.style.cssText = leftHeader.style.cssText;
+  rightHeader.style.gridColumn = '2';
+  rightHeader.textContent = 'Варіанти відповідей';
+
+  conditionBlock.appendChild(leftHeader);
+  conditionBlock.appendChild(rightHeader);
+
+  // Заповнюємо обидві колонки — рівну кількість рядків
+  const maxRows = Math.max(leftSide.length, rightSide.length);
+  for (let i = 0; i < maxRows; i++) {
+    // Ліва колонка
+    const leftDiv = document.createElement('div');
+    leftDiv.style.cssText = `
+      font-size: 0.88rem; line-height: 1.5; padding: 2px 0;
+      color: var(--color-text);
+    `;
+    if (leftSide[i]) {
+      leftDiv.innerHTML =
+        `<span style="font-family:var(--font-mono);font-weight:700;color:var(--color-accent);
+          margin-right:0.35rem;">${leftSide[i].id}.</span>${leftSide[i].text}`;
+    }
+    conditionBlock.appendChild(leftDiv);
+
+    // Права колонка
+    const rightDiv = document.createElement('div');
+    rightDiv.style.cssText = leftDiv.style.cssText;
+    if (rightSide[i]) {
+      rightDiv.innerHTML =
+        `<span style="font-family:var(--font-mono);font-weight:700;color:var(--color-blue);
+          margin-right:0.35rem;">${rightSide[i].id}.</span>${rightSide[i].text}`;
+    }
+    conditionBlock.appendChild(rightDiv);
+  }
+
+  wrapper.appendChild(conditionBlock);
+
+  // ════════════════════════════════════════
+  // БЛОК 2: Матриця відповідей (тільки цифри і букви)
+  // ════════════════════════════════════════
+  const matrixLabel = document.createElement('div');
+  matrixLabel.style.cssText = `
+    font-size: 0.75rem; color: var(--color-text-muted);
+    margin-bottom: 0.5rem;
+  `;
+  matrixLabel.textContent = 'Встановіть відповідність (кожна буква — лише один раз):';
+  wrapper.appendChild(matrixLabel);
+
+  // Таблиця матриці — компактна, без текстів
   const table = document.createElement('table');
   table.dataset.questionId = qId;
   table.style.cssText = `
-    width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
     background: var(--color-surface-2);
@@ -234,71 +308,64 @@ function renderMatchingOptions(list, question) {
     border-radius: var(--radius-md);
     overflow: hidden;
   `;
+  // Ширина: перша колонка (номер) + рівні колонки для букв
+  // Не 100% — матриця компактна, не розтягнута на всю ширину
+  const radioColPx = 56; // px на колонку (зручно для мобільного)
+  const numColPx   = 36;
+  const totalPx    = numColPx + rightSide.length * radioColPx;
+  table.style.width = `${totalPx}px`;
+  table.style.maxWidth = '100%';
 
-  // ── ЗАГОЛОВОК: порожня комірка + букви праворуч ──
-  const colWidth = `${Math.floor(75 / rightSide.length)}%`;
-
+  // ─ Заголовок матриці: порожня комірка + букви ─
   const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  headerRow.style.cssText = 'background: var(--color-surface);';
+  const hRow  = document.createElement('tr');
+  hRow.style.background = 'var(--color-surface)';
 
-  // Перша комірка — порожня (для тверджень)
-  const thEmpty = document.createElement('th');
-  thEmpty.style.cssText = `
-    width: 25%; padding: 8px 12px;
+  const thNum = document.createElement('th');
+  thNum.style.cssText = `
+    width: ${numColPx}px; padding: 6px 4px;
     border: 1px solid var(--color-border);
-    text-align: left;
-    font-size: 0.72rem; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--color-text-muted);
-    font-family: var(--font-display);
+    text-align: center;
   `;
-  thEmpty.textContent = 'Твердження';
-  headerRow.appendChild(thEmpty);
+  thNum.textContent = '';
+  hRow.appendChild(thNum);
 
-  // Комірки букв
   rightSide.forEach(r => {
     const th = document.createElement('th');
     th.style.cssText = `
-      width: ${colWidth}; padding: 8px 4px;
+      width: ${radioColPx}px; padding: 6px 4px;
       border: 1px solid var(--color-border);
       text-align: center;
-      font-family: var(--font-mono);
-      font-size: 0.9rem; font-weight: 700;
-      color: var(--color-accent);
+      font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700;
+      color: var(--color-blue);
     `;
     th.textContent = r.id;
-    th.title       = r.text; // підказка при hover
-    headerRow.appendChild(th);
+    hRow.appendChild(th);
   });
 
-  thead.appendChild(headerRow);
+  thead.appendChild(hRow);
   table.appendChild(thead);
 
-  // ── ТІЛО: рядки тверджень ──
+  // ─ Тіло матриці: рядки з цифрами і radio ─
   const tbody = document.createElement('tbody');
 
   leftSide.forEach((leftItem, rowIdx) => {
     const tr = document.createElement('tr');
-    // Зебра-полосатість
     if (rowIdx % 2 === 1) {
-      tr.style.background = 'rgba(255,255,255,0.02)';
+      tr.style.background = 'rgba(255,255,255,0.025)';
     }
 
-    // Комірка тексту твердження
-    const tdText = document.createElement('td');
-    tdText.style.cssText = `
-      padding: 10px 12px;
+    // Комірка номера (тільки цифра)
+    const tdNum = document.createElement('td');
+    tdNum.style.cssText = `
+      padding: 6px 4px;
       border: 1px solid var(--color-border);
-      font-size: 0.88rem; line-height: 1.4;
-      vertical-align: middle;
+      text-align: center; vertical-align: middle;
+      font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700;
+      color: var(--color-accent);
     `;
-    tdText.innerHTML = `
-      <span style="
-        font-family:var(--font-mono); font-weight:700;
-        color:var(--color-accent); margin-right:0.4rem;
-      ">${leftItem.id}.</span>${leftItem.text}
-    `;
-    tr.appendChild(tdText);
+    tdNum.textContent = leftItem.id;
+    tr.appendChild(tdNum);
 
     // Комірки radio для кожної букви
     rightSide.forEach(r => {
@@ -306,73 +373,50 @@ function renderMatchingOptions(list, question) {
 
       const td = document.createElement('td');
       td.style.cssText = `
-        padding: 10px 4px;
+        padding: 4px;
         border: 1px solid var(--color-border);
         text-align: center; vertical-align: middle;
-        transition: background 0.15s ease;
+        transition: background 0.12s ease;
         ${isSelected ? 'background: var(--color-blue-bg);' : ''}
       `;
       td.dataset.leftId  = leftItem.id;
       td.dataset.rightId = r.id;
 
-      // Велика кнопка-клітинка (для зручності на мобільному)
-      const radioWrap = document.createElement('label');
-      radioWrap.style.cssText = `
+      // Мінімальний label — вся комірка клікабельна
+      const label = document.createElement('label');
+      label.style.cssText = `
         display: flex; align-items: center; justify-content: center;
-        width: 100%; min-height: 44px;
-        cursor: pointer;
+        width: 100%; min-height: 44px; cursor: pointer;
       `;
-      radioWrap.title = `${leftItem.id} → ${r.id}: ${r.text}`;
+      label.title = `${leftItem.id} → ${r.id}`;
 
       const radio = document.createElement('input');
-      radio.type           = 'radio';
-      radio.name           = `matching-${qId}-row-${leftItem.id}`;
-      radio.value          = r.id;
-      radio.checked        = isSelected;
-      radio.dataset.leftId  = leftItem.id;
-      radio.dataset.rightId = r.id;
-      radio.dataset.qId     = qId;
-      // Власний стиль radio — більший і помітний
-      radio.style.cssText = `
-        width: 20px; height: 20px;
-        cursor: pointer;
+      radio.type             = 'radio';
+      radio.name             = `matching-${qId}-row-${leftItem.id}`;
+      radio.value            = r.id;
+      radio.checked          = isSelected;
+      radio.dataset.leftId   = leftItem.id;
+      radio.dataset.rightId  = r.id;
+      radio.dataset.qId      = qId;
+      radio.style.cssText    = `
+        width: 20px; height: 20px; cursor: pointer;
         accent-color: var(--color-blue);
       `;
 
-      radioWrap.appendChild(radio);
-      td.appendChild(radioWrap);
-      tr.appendChild(td);
-
-      // ── Обробник кліку ──
       radio.addEventListener('change', () => {
         handleMatchingClick(qId, leftItem.id, r.id, table);
       });
+
+      label.appendChild(radio);
+      td.appendChild(label);
+      tr.appendChild(td);
     });
 
     tbody.appendChild(tr);
   });
 
-  // ── Легенда букв (під таблицею) ──
-  const legend = document.createElement('div');
-  legend.style.cssText = `
-    margin-top: 0.75rem;
-    display: flex; flex-wrap: wrap; gap: 0.4rem;
-  `;
-  rightSide.forEach(r => {
-    const chip = document.createElement('span');
-    chip.style.cssText = `
-      font-size: 0.78rem; padding: 3px 10px;
-      background: var(--color-surface-2);
-      border: 1px solid var(--color-border);
-      border-radius: 100px; color: var(--color-text-muted);
-    `;
-    chip.innerHTML = `<strong style="color:var(--color-accent)">${r.id}</strong> — ${r.text}`;
-    legend.appendChild(chip);
-  });
-
   table.appendChild(tbody);
   wrapper.appendChild(table);
-  wrapper.appendChild(legend);
   list.appendChild(wrapper);
 }
 

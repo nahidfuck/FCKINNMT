@@ -158,20 +158,15 @@ def _calculate_score(session: models.TestSession) -> tuple[float, float, dict]:
     """
     Підраховує бали залежно від типу кожного питання.
 
-    single:
-      1 бал якщо answer_data["answer_id"] == correct_data["answer_id"]
+    Правила нарахування:
+      single   — 1 бал за точний збіг answer_id
+      multiple — 1 бал за кожен правильний вибір (partial scoring)
+      matching — 1 бал за кожну правильну пару
+      open     — 2 бали за точний текстовий збіг (фіксовано)
 
-    multiple (MVP — strict match):
-      1 бал якщо набір answer_ids точно збігається з correct_answer_ids.
-      Для більш м'якого підрахунку — можна розкоментувати partial нижче.
-
-    matching:
-      +1 бал за кожну правильну пару (max = кількість пар у correct_data["pairs"])
-
-    open:
-      points балів якщо текст (після trim+lower) є в correct_data["answers"]
+    max_score рахується через _question_max_score(), бо matching і multiple
+    мають змінний максимум (не просто question.points).
     """
-    # Будуємо словник: {question_id: answer_data}
     answers_map: dict[int, Any] = {
         a.question_id: a.answer_data
         for a in session.answers
@@ -182,80 +177,122 @@ def _calculate_score(session: models.TestSession) -> tuple[float, float, dict]:
     max_score = 0.0
 
     for q in session.test.questions:
-        q_max = q.points
-        max_score += q_max
-
-        user_data    = answers_map.get(q.id)
         correct_data = q.correct_data or {}
 
-        if user_data is None:
-            continue  # Пропущено — 0 балів
+        # Максимум балів залежить від типу
+        q_max = _question_max_score(q.type, correct_data, q.points)
+        max_score += q_max
 
-        earned = _score_question(q.type, user_data, correct_data, q_max)
-        score += earned
+        user_data = answers_map.get(q.id)
+        if user_data is None:
+            continue  # Не відповів — 0
+
+        earned = _score_question(q.type, user_data, correct_data, q.points)
+        score  += earned
 
     return score, max_score, answers_map
+
+
+def _question_max_score(q_type: str, correct_data: dict, base_points: float) -> float:
+    """
+    Повертає максимально можливий бал за питання.
+
+    single  → base_points (зазвичай 1.0)
+    multiple→ кількість правильних варіантів (1 бал кожен)
+    matching→ кількість пар (1 бал кожна)
+    open    → 2 бали (фіксовано за специфікацією НМТ)
+    """
+    if q_type == models.QuestionType.multiple:
+        return float(len(correct_data.get("answer_ids", [])))
+    if q_type == models.QuestionType.matching:
+        return float(len(correct_data.get("pairs", {})))
+    if q_type == models.QuestionType.open:
+        return 2.0
+    return base_points  # single
 
 
 def _score_question(
     q_type:       str,
     user_data:    Any,
     correct_data: dict,
-    max_points:   float,
+    base_points:  float,
 ) -> float:
     """
-    Повертає кількість балів за одне питання.
-    Ніколи не кидає — захищено від невалідних даних через try/except.
+    Повертає зароблені бали за одне питання.
+    Захищено від невалідних даних: будь-яка помилка → 0.
+
+    single:
+      Умова: answer_data["answer_id"] == correct_data["answer_id"]
+      Бали:  base_points (зазвичай 1.0) або 0
+
+    multiple (partial scoring):
+      За кожен ID в correct_ids: +1 якщо є у user_ids, 0 якщо нема.
+      Штраф за зайві (неправильні) варіанти: -1 за кожен.
+      Мінімум 0 балів (не від'ємний).
+
+    matching:
+      За кожну пару в correct_pairs: +1 якщо user вгадав, 0 якщо ні.
+      Порівняння str-to-str щоб уникнути проблем типів ("1" == 1).
+
+    open:
+      Умова: user_text.strip().lower() є в списку correct_data["answers"]
+      Бали: 2.0 (фіксовано) або 0
     """
     try:
+        # ── SINGLE ──────────────────────────────────────────────
         if q_type == models.QuestionType.single:
-            # {"answer_id": 5}
-            return max_points if (
+            return base_points if (
                 isinstance(user_data, dict) and
                 user_data.get("answer_id") == correct_data.get("answer_id")
             ) else 0.0
 
+        # ── MULTIPLE (partial, зі штрафом за зайве) ─────────────
         elif q_type == models.QuestionType.multiple:
-            # {"answer_ids": [3, 5]}
-            # MVP — strict match: правильно тільки якщо набір точно збігається
-            user_ids    = set(user_data.get("answer_ids", []) if isinstance(user_data, dict) else [])
-            correct_ids = set(correct_data.get("answer_ids", []))
+            if not isinstance(user_data, dict):
+                return 0.0
+            user_ids    = set(user_data.get("answer_ids") or [])
+            correct_ids = set(correct_data.get("answer_ids") or [])
             if not correct_ids:
                 return 0.0
-            return max_points if user_ids == correct_ids else 0.0
 
-            # Partial scoring (розкоментуй якщо потрібно):
-            # correct = len(user_ids & correct_ids)
-            # wrong   = len(user_ids - correct_ids)
-            # earned  = max(0, correct - wrong) / len(correct_ids) * max_points
-            # return round(earned, 2)
+            correct_hits = len(user_ids & correct_ids)   # правильно вибрані
+            wrong_hits   = len(user_ids - correct_ids)   # зайві (помилкові)
 
+            # Штраф: -1 за кожен зайвий вибір, але не менше 0
+            earned = max(0, correct_hits - wrong_hits)
+            return float(earned)
+
+        # ── MATCHING ─────────────────────────────────────────────
         elif q_type == models.QuestionType.matching:
-            # {"pairs": {"1":"A","2":"C","3":"B","4":"D"}}
-            correct_pairs = correct_data.get("pairs", {})
-            user_pairs    = user_data.get("pairs", {}) if isinstance(user_data, dict) else {}
+            if not isinstance(user_data, dict):
+                return 0.0
+            correct_pairs = correct_data.get("pairs") or {}
+            user_pairs    = user_data.get("pairs") or {}
             if not correct_pairs:
                 return 0.0
-            # 1 бал за кожну правильну пару
+
+            # str(key) і str(val) — захист від int/str невідповідності
             correct_count = sum(
                 1 for key, val in correct_pairs.items()
-                if str(user_pairs.get(str(key))) == str(val)
+                if str(user_pairs.get(str(key), "")) == str(val)
             )
             return float(correct_count)
 
+        # ── OPEN ──────────────────────────────────────────────────
         elif q_type == models.QuestionType.open:
-            # {"text": "12"}
+            if not isinstance(user_data, dict):
+                return 0.0
             correct_answers = [
                 str(a).strip().lower()
-                for a in correct_data.get("answers", [])
+                for a in (correct_data.get("answers") or [])
             ]
-            user_text = str(user_data.get("text", "")).strip().lower() \
-                if isinstance(user_data, dict) else ""
-            return max_points if user_text in correct_answers else 0.0
+            user_text = str(user_data.get("text") or "").strip().lower()
+            # Фіксовано 2 бали за правильну відповідь (специфікація НМТ)
+            return 2.0 if (user_text and user_text in correct_answers) else 0.0
 
     except Exception as e:
         import sys
-        print(f"[score] Помилка підрахунку: {e}", file=sys.stderr)
+        print(f"[score] Помилка підрахунку ({q_type}): {e}", file=sys.stderr)
 
     return 0.0
 
