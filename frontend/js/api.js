@@ -14,7 +14,7 @@
 // КОНФІГУРАЦІЯ
 // ============================================
 
-const BASE_URL  = 'http://localhost:8000';
+const BASE_URL  = 'https://fckinnmt.onrender.com';
 
 // Ключі localStorage — ЄДИНЕ оголошення у всьому проєкті
 const TOKEN_KEY = 'nmt_token';
