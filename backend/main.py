@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse
 from config import settings
 from database import engine, Base
 from routers import tests, sessions, reports, auth, teachers, students
+from fastapi.middleware.cors import CORSMiddleware
 
 Base.metadata.create_all(bind=engine)
 
@@ -28,9 +29,11 @@ app = FastAPI(
     swagger_ui_oauth2_redirect_url="/api/docs/oauth2-redirect",
 )
 
+# Дозволяємо запити з будь-яких доменів (тимчасово для деплою)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"], 
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
