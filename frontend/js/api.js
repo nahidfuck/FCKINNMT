@@ -147,24 +147,22 @@ const api = {
     });
   },
 
-  // --- АВТОРИЗАЦІЯ ---
+// --- АВТОРИЗАЦІЯ ---
   login(email, password) {
     const formData = new URLSearchParams();
     formData.append('username', email);
     formData.append('password', password);
-    return request('/api/auth/token', {
+    // ДОДАНО СЛЕШ В КІНЦІ: /api/auth/token/
+    return request('/api/auth/token/', {
       method: 'POST',
       body: formData,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
   },
 
-  /**
-   * Реєстрація. Приймає { email, password, full_name, role }.
-   * role: 'student' | 'teacher' (default 'student')
-   */
   register(userData) {
-    return request('/api/auth/register', {
+    // ДОДАНО СЛЕШ В КІНЦІ: /api/auth/register/
+    return request('/api/auth/register/', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
