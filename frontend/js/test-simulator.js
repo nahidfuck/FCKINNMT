@@ -719,22 +719,10 @@ function showResults(result) {
   document.getElementById('results-container').style.display = 'block';
 }
 
-// ============================================
-// 8. ЕКРАН РЕЗУЛЬТАТІВ
-// ============================================
-
-function showResults(result) {
-  document.getElementById('simulator-container').style.display = 'none';
-  document.querySelector('.app-header').style.display          = 'none';
-  renderResults(result);
-  document.getElementById('results-container').style.display = 'block';
-}
-
 function renderResults(result) {
   const { score, max_score, percentage, time_spent, questions } = result;
   const userAnswers = result.user_answers ?? {};
 
-  // Повертаємо старі добрі емодзі та коментарі
   const emoji   = percentage >= 75 ? '🎉' : percentage >= 50 ? '👍' : '📚';
   const comment = percentage >= 75
     ? 'Відмінний результат! Ти добре підготовлений.'
@@ -745,7 +733,6 @@ function renderResults(result) {
   const questionsHTML = questions.map((q, i) => {
     const { isCorrect, userText, correctText, earnedPoints, maxPoints } = _evaluateForDisplay(q, userAnswers[String(q.id)]);
 
-    // Повертаємо класичний дизайн карток з кольоровою смужкою зліва
     return `
       <div style="
         padding:1rem; margin-bottom:0.75rem;
@@ -770,12 +757,6 @@ function renderResults(result) {
         ${!isCorrect ? `
           <div style="font-size:0.82rem;color:var(--color-success);margin-top:2px;">
             Правильна: <span style="font-weight:600;">${correctText}</span>
-          </div>
-        ` : ''}
-        
-        ${q.explanation ? `
-          <div style="font-size:0.78rem;color:var(--color-text-muted);margin-top:0.4rem;font-style:italic;">
-            💡 ${q.explanation}
           </div>
         ` : ''}
       </div>
@@ -872,21 +853,6 @@ function _evaluateForDisplay(q, userStr) {
 
 function _buildCorrectText(q, correct_data) {
   switch (q.type) {
-    case 'single': return q.options.find(o => o.id === correct_data?.answer_id)?.text ?? '—';
-    case 'multiple': {
-      const ids = new Set(correct_data?.answer_ids ?? []);
-      return q.options.filter(o => ids.has(o.id)).map(o => o.text).join(', ') || '—';
-    }
-    case 'matching': {
-      return Object.entries(correct_data?.pairs ?? {})
-        .map(([l, r]) => `${l}→${r}`).join(', ') || '—';
-    }
-    case 'open': return correct_data?.answers?.join(' або ') ?? '—';
-    default: return '—';
-  }
-}
-function _buildCorrectText(q, correct_data) {
-  switch (q.type) {
     case 'single': {
       const opt = q.options.find(o => o.id === correct_data?.answer_id);
       return opt?.text ?? '—';
@@ -896,10 +862,8 @@ function _buildCorrectText(q, correct_data) {
       return q.options.filter(o => ids.has(o.id)).map(o => o.text).join(', ') || '—';
     }
     case 'matching': {
-      const content  = q.content || {};
-      const rightMap = Object.fromEntries((content.right || []).map(i => [i.id, i.text]));
       return Object.entries(correct_data?.pairs ?? {})
-        .map(([l, r]) => `${l}→${rightMap[r] ?? r}`).join(', ') || '—';
+        .map(([l, r]) => `${l}→${r}`).join(', ') || '—';
     }
     case 'open':
       return correct_data?.answers?.join(' або ') ?? '—';
@@ -907,7 +871,6 @@ function _buildCorrectText(q, correct_data) {
       return '—';
   }
 }
-
 // ============================================
 // 9. ТАЙМЕР
 // ============================================
