@@ -286,135 +286,60 @@ function renderMatchingOptions(list, question) {
 
   wrapper.appendChild(conditionBlock);
 
+// ════════════════════════════════════════
+  // БЛОК 2: Матриця відповідей (Чистий дизайн)
   // ════════════════════════════════════════
-  // БЛОК 2: Матриця відповідей (тільки цифри і букви)
-  // ════════════════════════════════════════
-  const matrixLabel = document.createElement('div');
-  matrixLabel.style.cssText = `
-    font-size: 0.75rem; color: var(--color-text-muted);
-    margin-bottom: 0.5rem;
-  `;
-  matrixLabel.textContent = 'Встановіть відповідність (кожна буква — лише один раз):';
-  wrapper.appendChild(matrixLabel);
-
-  // Таблиця матриці — компактна, без текстів
   const table = document.createElement('table');
-  table.dataset.questionId = qId;
-  table.style.cssText = `
-    border-collapse: collapse;
-    table-layout: fixed;
-    background: var(--color-surface-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-  `;
-  // Ширина: перша колонка (номер) + рівні колонки для букв
-  // Не 100% — матриця компактна, не розтягнута на всю ширину
-  const radioColPx = 56; // px на колонку (зручно для мобільного)
-  const numColPx   = 36;
-  const totalPx    = numColPx + rightSide.length * radioColPx;
-  table.style.width = `${totalPx}px`;
-  table.style.maxWidth = '100%';
-
-  // ─ Заголовок матриці: порожня комірка + букви ─
+  table.style.cssText = `border-collapse: collapse; margin-top:1rem;`;
+  
   const thead = document.createElement('thead');
-  const hRow  = document.createElement('tr');
-  hRow.style.background = 'var(--color-surface)';
-
-  const thNum = document.createElement('th');
-  thNum.style.cssText = `
-    width: ${numColPx}px; padding: 6px 4px;
-    border: 1px solid var(--color-border);
-    text-align: center;
-  `;
-  thNum.textContent = '';
-  hRow.appendChild(thNum);
-
-  rightSide.forEach(r => {
-    const th = document.createElement('th');
-    th.style.cssText = `
-      width: ${radioColPx}px; padding: 6px 4px;
-      border: 1px solid var(--color-border);
-      text-align: center;
-      font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700;
-      color: var(--color-blue);
-    `;
-    th.textContent = r.id;
-    hRow.appendChild(th);
-  });
-
+  const hRow = document.createElement('tr');
+  hRow.innerHTML = `<th style="width:40px;"></th>` + rightSide.map(r => 
+    `<th style="width:45px; padding:8px 0; font-family:var(--font-mono); color:var(--color-blue); text-align:center;">${r.id}</th>`
+  ).join('');
   thead.appendChild(hRow);
   table.appendChild(thead);
 
-  // ─ Тіло матриці: рядки з цифрами і radio ─
   const tbody = document.createElement('tbody');
-
   leftSide.forEach((leftItem, rowIdx) => {
     const tr = document.createElement('tr');
-    if (rowIdx % 2 === 1) {
-      tr.style.background = 'rgba(255,255,255,0.025)';
-    }
+    tr.style.cssText = `border-bottom: 1px solid var(--color-border); transition: background 0.2s ease;`;
+    
+    // Hover ефект на весь рядок
+    tr.onmouseenter = () => tr.style.background = 'var(--color-surface-2)';
+    tr.onmouseleave = () => tr.style.background = 'transparent';
 
-    // Комірка номера (тільки цифра)
     const tdNum = document.createElement('td');
-    tdNum.style.cssText = `
-      padding: 6px 4px;
-      border: 1px solid var(--color-border);
-      text-align: center; vertical-align: middle;
-      font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700;
-      color: var(--color-accent);
-    `;
+    tdNum.style.cssText = `text-align:center; font-weight:bold; font-family:var(--font-mono);`;
     tdNum.textContent = leftItem.id;
     tr.appendChild(tdNum);
 
-    // Комірки radio для кожної букви
     rightSide.forEach(r => {
       const isSelected = savedPairs[leftItem.id] === r.id;
-
       const td = document.createElement('td');
-      td.style.cssText = `
-        padding: 4px;
-        border: 1px solid var(--color-border);
-        text-align: center; vertical-align: middle;
-        transition: background 0.12s ease;
-        ${isSelected ? 'background: var(--color-blue-bg);' : ''}
-      `;
-      td.dataset.leftId  = leftItem.id;
-      td.dataset.rightId = r.id;
-
-      // Мінімальний label — вся комірка клікабельна
+      td.style.cssText = `padding: 10px 0; text-align: center; vertical-align: middle;`;
+      
       const label = document.createElement('label');
-      label.style.cssText = `
-        display: flex; align-items: center; justify-content: center;
-        width: 100%; min-height: 44px; cursor: pointer;
-      `;
-      label.title = `${leftItem.id} → ${r.id}`;
-
+      label.style.cssText = `display:flex; justify-content:center; align-items:center; width:100%; height:100%; cursor:pointer; margin:0;`;
+      
       const radio = document.createElement('input');
-      radio.type             = 'radio';
-      radio.name             = `matching-${qId}-row-${leftItem.id}`;
-      radio.value            = r.id;
-      radio.checked          = isSelected;
-      radio.dataset.leftId   = leftItem.id;
-      radio.dataset.rightId  = r.id;
-      radio.dataset.qId      = qId;
-      radio.style.cssText    = `
-        width: 20px; height: 20px; cursor: pointer;
-        accent-color: var(--color-blue);
-      `;
-
+      radio.type = 'radio';
+      radio.name = `match-${qId}-${leftItem.id}`;
+      radio.checked = isSelected;
+      radio.style.cssText = `width: 20px; height: 20px; cursor: pointer; accent-color: var(--color-blue); margin:0;`;
+      
       radio.addEventListener('change', () => {
-        handleMatchingClick(qId, leftItem.id, r.id, table);
+        handleMatchingClick(qId, leftItem.id, r.id, list);
+        renderOptions(question); // Одразу перемальовуємо, щоб зняти зайві галочки
       });
 
       label.appendChild(radio);
       td.appendChild(label);
       tr.appendChild(td);
     });
-
     tbody.appendChild(tr);
   });
-
+  
   table.appendChild(tbody);
   wrapper.appendChild(table);
   list.appendChild(wrapper);
@@ -794,12 +719,22 @@ function showResults(result) {
   document.getElementById('results-container').style.display = 'block';
 }
 
+// ============================================
+// 8. ЕКРАН РЕЗУЛЬТАТІВ
+// ============================================
+
+function showResults(result) {
+  document.getElementById('simulator-container').style.display = 'none';
+  document.querySelector('.app-header').style.display          = 'none';
+  renderResults(result);
+  document.getElementById('results-container').style.display = 'block';
+}
+
 function renderResults(result) {
   const { score, max_score, percentage, time_spent, questions } = result;
-
-  // user_answers: { "questionId": answer_data }
   const userAnswers = result.user_answers ?? {};
 
+  // Повертаємо старі добрі емодзі та коментарі
   const emoji   = percentage >= 75 ? '🎉' : percentage >= 50 ? '👍' : '📚';
   const comment = percentage >= 75
     ? 'Відмінний результат! Ти добре підготовлений.'
@@ -808,10 +743,9 @@ function renderResults(result) {
     : 'Варто повторити матеріал і спробувати ще раз.';
 
   const questionsHTML = questions.map((q, i) => {
-    const userAnswerData    = userAnswers[String(q.id)];
-    const { isCorrect, userText, correctText } =
-      _evaluateForDisplay(q, userAnswerData);
+    const { isCorrect, userText, correctText, earnedPoints, maxPoints } = _evaluateForDisplay(q, userAnswers[String(q.id)]);
 
+    // Повертаємо класичний дизайн карток з кольоровою смужкою зліва
     return `
       <div style="
         padding:1rem; margin-bottom:0.75rem;
@@ -824,14 +758,21 @@ function renderResults(result) {
             <span style="margin-left:0.5rem;opacity:0.6;">[${q.type}]</span>
           </span>
           <span style="font-family:var(--font-mono);font-size:0.8rem;color:var(--color-accent);">
-            ${isCorrect ? q.points : 0}/${q.points} балів
+            ${earnedPoints}/${maxPoints} балів
           </span>
         </div>
         <div style="font-size:0.88rem;margin-bottom:0.5rem;line-height:1.5;">${q.text}</div>
+        
+        <div style="font-size:0.82rem;color:${isCorrect ? 'var(--color-success)' : 'var(--color-danger)'};">
+          Ваша відповідь: <span style="font-weight:600;">${userText}</span>
+        </div>
+        
         ${!isCorrect ? `
-          <div style="font-size:0.82rem;color:var(--color-danger);">Ваша відповідь: ${userText}</div>
-          <div style="font-size:0.82rem;color:var(--color-success);margin-top:2px;">Правильна: ${correctText}</div>
+          <div style="font-size:0.82rem;color:var(--color-success);margin-top:2px;">
+            Правильна: <span style="font-weight:600;">${correctText}</span>
+          </div>
         ` : ''}
+        
         ${q.explanation ? `
           <div style="font-size:0.78rem;color:var(--color-text-muted);margin-top:0.4rem;font-style:italic;">
             💡 ${q.explanation}
@@ -875,83 +816,75 @@ function renderResults(result) {
   `;
 }
 
-/**
- * Формує текстовий опис відповіді студента і правильної відповіді
- * для відображення у розборі (тільки для фронтенду).
- */
-function _evaluateForDisplay(q, userAnswerData) {
-  const correct_data = q.correct_data || {};
-  let isCorrect   = false;
-  let userText    = '<em>не відповіли</em>';
-  let correctText = '—';
+function _evaluateForDisplay(q, userStr) {
+  const correct_data = (typeof q.correct_data === 'string') ? JSON.parse(q.correct_data || '{}') : (q.correct_data || {});
+  const uData = (typeof userStr === 'string') ? JSON.parse(userStr || '{}') : userStr;
 
-  if (!userAnswerData) {
-    // Будуємо correctText незалежно
-    correctText = _buildCorrectText(q, correct_data);
-    return { isCorrect: false, userText, correctText };
-  }
+  let isCorrect = false, userText = '<em>не відповіли</em>', correctText = '—';
+  let earnedPoints = 0, maxPoints = q.points || 1;
+
+  if (q.type === 'multiple') maxPoints = (correct_data.answer_ids || []).length;
+  if (q.type === 'matching') maxPoints = Object.keys(correct_data.pairs || {}).length;
+  if (q.type === 'open') maxPoints = 2;
+
+  if (!uData) return { isCorrect: false, userText, correctText: _buildCorrectText(q, correct_data), earnedPoints: 0, maxPoints };
 
   switch (q.type) {
     case 'single': {
-      const userId   = userAnswerData?.answer_id;
-      const corrId   = correct_data?.answer_id;
-      isCorrect      = userId === corrId;
-      const userOpt  = q.options.find(o => o.id === userId);
-      const corrOpt  = q.options.find(o => o.id === corrId);
-      userText    = userOpt?.text ?? String(userId ?? '—');
-      correctText = corrOpt?.text ?? String(corrId ?? '—');
+      isCorrect = uData.answer_id === correct_data.answer_id;
+      earnedPoints = isCorrect ? maxPoints : 0;
+      userText = q.options.find(o => o.id === uData.answer_id)?.text ?? '—';
+      correctText = q.options.find(o => o.id === correct_data.answer_id)?.text ?? '—';
       break;
     }
     case 'multiple': {
-      const userIds = new Set(userAnswerData?.answer_ids ?? []);
-      const corrIds = new Set(correct_data?.answer_ids ?? []);
-      isCorrect  = userIds.size === corrIds.size &&
-                   [...userIds].every(id => corrIds.has(id));
-      const letters = ['А','Б','В','Г','Д','Е','Є'];
-      const toLetters = (ids) => q.options
-        .filter(o => ids.has(o.id))
-        .map((o, _i) => {
-          const idx = q.options.indexOf(o);
-          return `${letters[idx] ?? idx + 1}. ${o.text}`;
-        }).join(', ') || '—';
-      userText    = toLetters(userIds);
-      correctText = toLetters(corrIds);
+      const uIds = new Set(uData.answer_ids || []);
+      const cIds = new Set(correct_data.answer_ids || []);
+      const cHits = [...uIds].filter(id => cIds.has(id)).length;
+      const wHits = [...uIds].filter(id => !cIds.has(id)).length;
+      earnedPoints = Math.max(0, cHits - wHits);
+      isCorrect = earnedPoints === maxPoints && maxPoints > 0;
+      userText = q.options.filter(o => uIds.has(o.id)).map(o => o.text).join(', ') || '—';
+      correctText = q.options.filter(o => cIds.has(o.id)).map(o => o.text).join(', ') || '—';
       break;
     }
     case 'matching': {
-      const corrPairs = correct_data?.pairs ?? {};
-      const userPairs = userAnswerData?.pairs ?? {};
-      const total = Object.keys(corrPairs).length;
-      const right = Object.entries(corrPairs).filter(
-        ([k, v]) => String(userPairs[k]) === String(v)
-      ).length;
-      isCorrect = right === total && total > 0;
-
-      const content   = q.content || {};
-      const leftMap   = Object.fromEntries((content.left  || []).map(i => [i.id, i.text]));
-      const rightMap  = Object.fromEntries((content.right || []).map(i => [i.id, i.text]));
-      userText = Object.entries(userPairs)
-        .map(([l, r]) => `${l}→${r}`)
-        .join(', ') || '—';
-      correctText = Object.entries(corrPairs)
-        .map(([l, r]) => `${leftMap[l] ?? l} → ${rightMap[r] ?? r}`)
-        .join(', ') || '—';
+      const cPairs = correct_data.pairs || {};
+      const uPairs = uData.pairs || {};
+      earnedPoints = Object.keys(cPairs).filter(k => String(uPairs[k]) === String(cPairs[k])).length;
+      isCorrect = earnedPoints === maxPoints && maxPoints > 0;
+      userText = Object.entries(uPairs).map(([l, r]) => `${l}→${r}`).join(', ') || '—';
+      correctText = Object.entries(cPairs).map(([l, r]) => `${l}→${r}`).join(', ') || '—';
       break;
     }
     case 'open': {
-      const corrAnswers = (correct_data?.answers ?? [])
-        .map(a => String(a).trim().toLowerCase());
-      const uText  = String(userAnswerData?.text ?? '').trim();
-      isCorrect    = corrAnswers.includes(uText.toLowerCase());
-      userText     = uText || '<em>не відповіли</em>';
-      correctText  = correct_data?.answers?.join(' або ') ?? '—';
+      const cAns = (correct_data.answers || []).map(a => String(a).trim().toLowerCase());
+      const uTxt = String(uData.text || '').trim();
+      isCorrect = cAns.includes(uTxt.toLowerCase());
+      earnedPoints = isCorrect ? 2 : 0;
+      userText = uTxt;
+      correctText = correct_data.answers?.join(' або ') ?? '—';
       break;
     }
   }
-
-  return { isCorrect, userText, correctText };
+  return { isCorrect, userText, correctText, earnedPoints, maxPoints };
 }
 
+function _buildCorrectText(q, correct_data) {
+  switch (q.type) {
+    case 'single': return q.options.find(o => o.id === correct_data?.answer_id)?.text ?? '—';
+    case 'multiple': {
+      const ids = new Set(correct_data?.answer_ids ?? []);
+      return q.options.filter(o => ids.has(o.id)).map(o => o.text).join(', ') || '—';
+    }
+    case 'matching': {
+      return Object.entries(correct_data?.pairs ?? {})
+        .map(([l, r]) => `${l}→${r}`).join(', ') || '—';
+    }
+    case 'open': return correct_data?.answers?.join(' або ') ?? '—';
+    default: return '—';
+  }
+}
 function _buildCorrectText(q, correct_data) {
   switch (q.type) {
     case 'single': {
