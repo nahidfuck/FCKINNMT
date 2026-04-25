@@ -14,7 +14,7 @@
 // КОНФІГУРАЦІЯ
 // ============================================
 
-const BASE_URL  = 'https://fckinnmt.onrender.com';
+const BASE_URL  = 'http://localhost:8000';
 
 // Ключі localStorage — ЄДИНЕ оголошення у всьому проєкті
 const TOKEN_KEY = 'nmt_token';
@@ -152,8 +152,8 @@ const api = {
     const formData = new URLSearchParams();
     formData.append('username', email);
     formData.append('password', password);
-    // ДОДАНО СЛЕШ В КІНЦІ: /api/auth/token/
-    return request('/api/auth/token/', {
+    // ТУТ БЕЗ СЛЕША:
+    return request('/api/auth/token', {
       method: 'POST',
       body: formData,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -161,8 +161,8 @@ const api = {
   },
 
   register(userData) {
-    // ДОДАНО СЛЕШ В КІНЦІ: /api/auth/register/
-    return request('/api/auth/register/', {
+    // ТУТ БЕЗ СЛЕША:
+    return request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });

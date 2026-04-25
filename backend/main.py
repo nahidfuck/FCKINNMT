@@ -34,7 +34,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://fckinnmt.vercel.app", 
-        "http://localhost:5500", 
+        "http://localhost:5500",      # <-- Ти маєш відкривати сайт локально саме на цьому порту
         "http://127.0.0.1:5500"
     ],
     allow_credentials=True,
