@@ -132,49 +132,57 @@ def get_students_stats(
     teacher: models.User = Depends(get_current_teacher),
 ):
     """
-    Повертає результати всіх завершених тестів учнів з груп цього вчителя.
+    Повертає результати ТІЛЬКИ по тестах, які вчитель задав своїм групам.
 
-    Запит:
-      1. Знаходимо всі групи вчителя
-      2. Знаходимо всіх учнів цих груп
-      3. Завантажуємо завершені сесії цих учнів з деталями тесту
+    Логіка:
+      1. Отримуємо всі групи вчителя.
+      2. Для кожної групи — список ID тестів, що їй задані (через GroupTest).
+      3. Збираємо ID учнів кожної групи.
+      4. З БД беремо лише ті завершені сесії, де:
+           - user_id належить до потрібної групи, І
+           - test_id входить до списку ЗАДАНИХ тестів саме цієї групи.
+         (учень міг пройти 100 інших тестів — вчитель їх не побачить)
     """
-    # Знаходимо ID всіх груп цього вчителя
-    group_ids = [
-        g.id for g in db.query(models.Group.id).filter(
-            models.Group.teacher_id == teacher.id
+    # ── Крок 1: групи вчителя ─────────────────────────────────
+    groups = db.query(models.Group).filter(
+        models.Group.teacher_id == teacher.id
+    ).all()
+
+    if not groups:
+        return []
+
+    # ── Крок 2: для кожної групи — множина заданих test_id ────
+    # group_assigned: { group_id → set(test_id) }
+    group_assigned: dict[int, set[int]] = {}
+    for group in groups:
+        assigned_rows = db.query(models.GroupTest.test_id).filter(
+            models.GroupTest.group_id == group.id
         ).all()
-    ]
+        group_assigned[group.id] = {row.test_id for row in assigned_rows}
 
-    if not group_ids:
-        return []  # Вчитель ще не створив жодної групи
-
-    # Знаходимо всіх учнів цих груп
-    students = db.query(models.User).filter(
+    # ── Крок 3: учні кожної групи ─────────────────────────────
+    group_ids   = [g.id for g in groups]
+    students    = db.query(models.User).filter(
         models.User.group_id.in_(group_ids)
     ).all()
 
     if not students:
-        return []  # Ще ніхто не приєднався
+        return []
 
-    student_ids = [s.id for s in students]
+    # Допоміжні словники для O(1)-доступу
+    students_map: dict[int, models.User] = {s.id: s for s in students}
+    groups_map:   dict[int, str]         = {g.id: g.name for g in groups}
+    student_ids = list(students_map.keys())
 
-    # Словник для швидкого доступу: user_id → user
-    students_map = {s.id: s for s in students}
-
-    # Словник для швидкого доступу: group_id → group_name
-    groups_map = {
-        g.id: g.name for g in db.query(models.Group).filter(
-            models.Group.id.in_(group_ids)
-        ).all()
-    }
-
-    # Завантажуємо завершені сесії цих учнів
-    sessions = (
+    # ── Крок 4: завершені сесії ────────────────────────────────
+    # Спочатку отримуємо всі завершені сесії учнів — потім фільтруємо
+    # в Python, бо умова "test_id in assigned_ids ДЛЯ ГРУПИ СТУДЕНТА"
+    # потребує join-у через group_id студента, що зручніше зробити в коді.
+    all_sessions = (
         db.query(models.TestSession)
         .filter(
             models.TestSession.user_id.in_(student_ids),
-            models.TestSession.status == models.SessionStatus.finished,
+            models.TestSession.status   == models.SessionStatus.finished,
             models.TestSession.score.isnot(None),
         )
         .order_by(models.TestSession.finished_at.desc())
@@ -182,17 +190,22 @@ def get_students_stats(
     )
 
     result = []
-    for session in sessions:
-        student   = students_map.get(session.user_id)
-        if not student:
+    for session in all_sessions:
+        student = students_map.get(session.user_id)
+        if not student or student.group_id is None:
             continue
+
+        # Ключова перевірка: чи цей тест задано групі студента?
+        assigned_for_group = group_assigned.get(student.group_id, set())
+        if session.test_id not in assigned_for_group:
+            continue   # ← учень пройшов це сам, вчитель не бачить
 
         group_name = groups_map.get(student.group_id, "—")
         percentage = round(
-            (session.score / session.max_score * 100)
+            session.score / session.max_score * 100
             if session.max_score and session.max_score > 0
             else 0,
-            1
+            1,
         )
 
         result.append(schemas.StudentStatRow(
